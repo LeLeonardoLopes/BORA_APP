@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -7,9 +7,21 @@ import {
   Chip,
   Button,
   Divider,
-  Alert
+  Alert,
+  IconButton,
+  Tooltip
 } from '@mui/material';
-import { MapPin, Calendar, Navigation, ShieldCheck, ShieldAlert, Shield, Users } from 'lucide-react';
+import { 
+  MapPin, 
+  Calendar, 
+  Navigation, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Shield, 
+  Users, 
+  Share2 
+} from 'lucide-react';
+import { obterClimaFranca, PrevisaoClima } from '../services/weatherService';
 
 export interface MatchCardProps {
   id: string;
@@ -60,239 +72,246 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const vagasRestantes = maxVagas - vagasPreenchidas;
   const isLotado = isAmistoso ? Boolean(timeVisitante) : vagasRestantes <= 0;
 
-  const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + String(lat) + ',' + String(lng);
-  const openStreetMapEmbed = 'https://www.openstreetmap.org/export/embed.html?bbox=' + 
-    String(lng - 0.005) + '%2C' + String(lat - 0.005) + '%2C' + 
-    String(lng + 0.005) + '%2C' + String(lat + 0.005) + 
-    '&layer=mapnik&marker=' + String(lat) + '%2C' + String(lng);
+  const [clima, setClima] = useState<PrevisaoClima | null>(null);
+
+  useEffect(() => {
+    obterClimaFranca(lat, lng).then(setClima);
+  }, [lat, lng]);
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const openStreetMapEmbed = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005}%2C${lat - 0.005}%2C${lng + 0.005}%2C${lat + 0.005}&layer=mapnik&marker=${lat}%2C${lng}`;
+
+  const dataFormatada = new Date(dataHora).toLocaleString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  // Gerador de Convite para WhatsApp
+  const handleCompartilharWhatsApp = () => {
+    const textoMensagem = isAmistoso
+      ? `🏆 *DESAFIO DE AMISTOSO NO BORA! APP*\n` +
+        `⚽ *Modalidade:* ${esporte}\n` +
+        `🛡️ *Mandante:* ${timeMandante || 'Equipe de Franca'}\n` +
+        `📍 *Local:* ${bairro}, Franca/SP\n` +
+        `⏰ *Horário:* ${dataFormatada}\n` +
+        `👉 Aceite o desafio no Bora! App: http://localhost:5173`
+      : `⚽ *BORA PRO RACHA! — BORA! APP*\n` +
+        `🏆 *Jogo:* ${esporte}\n` +
+        `📍 *Local:* ${bairro}, Franca/SP\n` +
+        `⏰ *Horário:* ${dataFormatada}\n` +
+        `🎟️ *Vagas restantes:* ${vagasRestantes} de ${maxVagas}\n` +
+        `👉 Garanta sua vaga no Bora! App: http://localhost:5173`;
+
+    const zapUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensagem)}`;
+    window.open(zapUrl, '_blank');
+  };
 
   return (
     <Card 
       sx={{ 
-        mb: 2.5, 
+        mb: 2, 
         overflow: 'hidden',
         border: isAmistoso ? '1.5px solid #0066FF' : (isConfirmado ? '1.5px solid #10B981' : '1px solid rgba(226, 232, 240, 0.9)'),
+        borderRadius: 3,
+        boxShadow: '0 3px 12px rgba(0,0,0,0.04)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        '&:hover': {
+          transform: 'translateY(-1px)',
+          boxShadow: '0 6px 18px rgba(0,102,255,0.1)'
+        }
       }}
     >
-      {/* Header com tipo de confronto */}
+      {/* Header com Tipo de Jogo & Botão Compartilhar */}
       {isAmistoso ? (
         <Box 
           sx={{ 
             bgcolor: 'primary.main', 
             color: '#fff', 
-            py: 0.8, 
-            px: 2, 
+            py: 0.6, 
+            px: 1.8, 
             display: 'flex', 
             justifyContent: 'space-between',
             alignItems: 'center', 
-            fontSize: '0.82rem', 
-            fontWeight: 900 
-          }}
-        >
-          <Box display="flex" alignItems="center" gap={0.8}>
-            <Shield size={16} color="#FFD700" /> AMISTOSO ENTRE TIMES
-          </Box>
-          <Chip
-            size="small"
-            label={tipoLocal === 'Publica' ? 'Campo Público' : 'Arena Privada'}
-            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 22 }}
-          />
-        </Box>
-      ) : isConfirmado && (
-        <Box 
-          sx={{ 
-            bgcolor: 'success.main', 
-            color: '#fff', 
-            py: 0.6, 
-            px: 2, 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 1, 
-            fontSize: '0.8rem', 
+            fontSize: '0.74rem', 
             fontWeight: 800 
           }}
         >
-          <ShieldCheck size={16} /> VOCÊ ESTÁ CONFIRMADO NESTA PARTIDA
+          <Box display="flex" alignItems="center" gap={0.6}>
+            <Shield size={14} color="#FFD700" /> AMISTOSO ENTRE TIMES
+          </Box>
+          <Box display="flex" alignItems="center" gap={0.8}>
+            <Chip
+              size="small"
+              label={tipoLocal === 'Publica' ? 'Campo Público' : 'Arena Privada'}
+              sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 20, fontSize: '0.68rem' }}
+            />
+            <Tooltip title="Convidar no WhatsApp">
+              <IconButton 
+                size="small" 
+                onClick={handleCompartilharWhatsApp} 
+                sx={{ color: '#FFD700', p: 0.2, bgcolor: 'rgba(255,255,255,0.15)' }}
+              >
+                <Share2 size={13} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      ) : (
+        <Box 
+          sx={{ 
+            bgcolor: '#F8FAFC', 
+            py: 0.5, 
+            px: 1.8, 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            borderBottom: '1px solid #E2E8F0' 
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={0.6}>
+            <Users size={13} color="#16A34A" />
+            <Typography variant="caption" sx={{ fontWeight: 800, color: '#166534', fontSize: '0.70rem' }}>
+              PARTIDA ABERTA (AVULSO)
+            </Typography>
+          </Box>
+          <Box display="flex" alignItems="center" gap={0.8}>
+            <Chip
+              size="small"
+              label={tipoLocal === 'Publica' ? '100% Gratuito' : 'Aluguel Privado'}
+              sx={{
+                bgcolor: tipoLocal === 'Publica' ? '#DCFCE7' : '#EFF6FF',
+                color: tipoLocal === 'Publica' ? '#166534' : 'primary.main',
+                fontWeight: 800,
+                fontSize: '0.65rem',
+                height: 19
+              }}
+            />
+            <Tooltip title="Convidar no WhatsApp">
+              <IconButton 
+                size="small" 
+                onClick={handleCompartilharWhatsApp} 
+                sx={{ color: '#16A34A', p: 0.2, bgcolor: '#DCFCE7' }}
+              >
+                <Share2 size={12} />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       )}
 
-      <CardContent sx={{ p: 2.5 }}>
-        {/* Placa de Confronto de Amistoso */}
-        {isAmistoso ? (
-          <Box 
-            sx={{ 
-              p: 2, 
-              mb: 2, 
-              borderRadius: 3, 
-              bgcolor: '#F8FAFC', 
-              border: '1px solid #E2E8F0', 
-              textAlign: 'center' 
-            }}
-          >
-            <Typography variant="caption" color="text.secondary" fontWeight={800} display="block" mb={0.5}>
-              CONFRONTO DEFINIDO:
+      <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
+        
+        {/* Título da Partida / Confronto */}
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={0.8}>
+          <Box>
+            <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 800, fontSize: '0.94rem', lineHeight: 1.2, color: 'text.primary' }}>
+              {esporte}
             </Typography>
-            <Box display="flex" justifyContent="center" alignItems="center" gap={1.5}>
-              <Typography variant="subtitle1" fontWeight={900} color="primary.main">
-                🛡️ {timeMandante || 'Time da Casa'}
+            {isAmistoso && (
+              <Typography variant="caption" color="primary.main" fontWeight={800} display="block" mt={0.2} sx={{ fontSize: '0.74rem' }}>
+                ⚔️ {timeMandante || 'Bora Franca F.C.'} vs {timeVisitante ? <strong>{timeVisitante}</strong> : 'Aguardando Desafiante'}
               </Typography>
-              <Typography variant="body2" fontWeight={900} color="text.secondary">
-                VS
-              </Typography>
-              <Typography 
-                variant="subtitle1" 
-                fontWeight={900} 
-                color={timeVisitante ? 'primary.main' : 'text.disabled'}
-              >
-                {timeVisitante ? '🛡️ ' + timeVisitante : '❓ Aguardando Desafiante'}
-              </Typography>
-            </Box>
-
-            {/* Divisão de Taxas (Campo + Juiz) por Equipe */}
-            <Divider sx={{ my: 1.5 }} />
-            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-              <Box textAlign="left">
-                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
-                  Custo por Equipe (50% cada):
-                </Typography>
-                <Typography variant="subtitle2" fontWeight={900} color="primary.main">
-                  {((tipoLocal === 'Publica' ? 0 : (taxaCampo || 0)) + (taxaJuiz || 0)) > 0 
-                    ? `🤝 R$ ${(valorPorEquipe || (((tipoLocal === 'Publica' ? 0 : (taxaCampo || 0)) + (taxaJuiz || 0)) / 2)).toFixed(2)}`
-                    : '🎉 Amistoso Gratuito (Sem taxas)'}
-                </Typography>
-              </Box>
-
-              <Box textAlign="right">
-                {tipoLocal === 'Publica' ? (
-                  <>
-                    <Typography variant="caption" color="success.main" fontWeight={800} display="block">
-                      🏟️ Campo Público (R$ 0,00)
-                    </Typography>
-                    {(taxaJuiz || 0) > 0 && (
-                      <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
-                        ⚖️ Juiz: R$ {(taxaJuiz || 0).toFixed(2)}
-                      </Typography>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
-                      🏟️ Campo Privado: R$ {(taxaCampo || 0).toFixed(2)}
-                    </Typography>
-                    {(taxaJuiz || 0) > 0 && (
-                      <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
-                        ⚖️ Juiz: R$ {(taxaJuiz || 0).toFixed(2)}
-                      </Typography>
-                    )}
-                  </>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        ) : null}
-
-        {/* Tags de Modalidade e Vagas */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-          <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-            <Chip 
-              label={esporte} 
-              sx={{ bgcolor: 'primary.main', color: '#fff', fontWeight: 800, fontSize: '0.8rem' }} 
-            />
-            {!isAmistoso && (
-              <Chip
-                label={tipoLocal === 'Publica' ? '🌳 Quadra Pública (Grátis)' : (taxaCampo && taxaCampo > 0 ? `🏟️ R$ ${(taxaCampo / maxVagas).toFixed(2)}/vaga` : '🏟️ Quadra Privada')}
-                size="small"
-                sx={{ 
-                  bgcolor: tipoLocal === 'Publica' ? '#DCFCE7' : '#EFF6FF', 
-                  color: tipoLocal === 'Publica' ? '#166534' : 'primary.main', 
-                  fontWeight: 800 
-                }}
-              />
             )}
           </Box>
 
-          <Chip
-            label={isAmistoso ? (timeVisitante ? 'AMISTOSO FECHADO' : 'BUSCA ADVERSÁRIO') : (isLotado ? 'LOTADO' : String(vagasRestantes) + ' vagas livres')}
-            sx={{
-              bgcolor: isLotado ? 'error.light' : '#FEF08A',
-              color: isLotado ? 'error.dark' : '#854D0E',
-              fontWeight: 800,
-              fontSize: '0.78rem'
-            }}
-          />
+          {/* Badge de Vagas */}
+          {isAmistoso ? (
+            <Chip
+              label={timeVisitante ? 'Duelo Fechado' : 'Desafio Aberto'}
+              color={timeVisitante ? 'default' : 'primary'}
+              size="small"
+              sx={{ fontWeight: 800, fontSize: '0.68rem', height: 21 }}
+            />
+          ) : (
+            <Chip
+              label={vagasRestantes > 0 ? `${vagasRestantes} vagas restantes` : 'Partida Lotada'}
+              color={vagasRestantes > 0 ? 'secondary' : 'default'}
+              size="small"
+              sx={{ fontWeight: 800, color: vagasRestantes > 0 ? '#000' : 'inherit', fontSize: '0.68rem', height: 21 }}
+            />
+          )}
         </Box>
 
-        {descricao && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
-            {descricao}
-          </Typography>
-        )}
-
-        {/* Informações da Partida */}
-        <Box display="flex" flexDirection="column" gap={1} mb={2}>
-          <Box display="flex" alignItems="center" gap={1.2} color="text.primary">
-            <Box sx={{ p: 0.8, borderRadius: 2, bgcolor: '#EFF6FF', color: 'primary.main', display: 'flex' }}>
-              <Calendar size={18} />
-            </Box>
-            <Typography variant="body2" fontWeight={700}>
-              {new Date(dataHora).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+        {/* Data, Horário e Previsão do Tempo */}
+        <Box display="flex" flexWrap="wrap" gap={0.8} alignItems="center" mb={1.2}>
+          <Box display="flex" alignItems="center" gap={0.4}>
+            <Calendar size={13} color="#0066FF" />
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
+              {dataFormatada}
             </Typography>
           </Box>
 
-          <Box display="flex" alignItems="center" gap={1.2} color="text.primary">
-            <Box sx={{ p: 0.8, borderRadius: 2, bgcolor: '#EFF6FF', color: 'primary.main', display: 'flex' }}>
-              <MapPin size={18} />
-            </Box>
-            <Typography variant="body2" fontWeight={700}>
+          <Box display="flex" alignItems="center" gap={0.4}>
+            <MapPin size={13} color="#0066FF" />
+            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
               {bairro}, Franca/SP
             </Typography>
           </Box>
-        </Box>
 
-        {/* REQUISITO LGPD (RN02) + VISUALIZADOR DE MAPAS */}
-        {isConfirmado ? (
-          <Box sx={{ mt: 2, mb: 2, bgcolor: '#F0FDF4', p: 2, borderRadius: 3, border: '1px solid #BBF7D0' }}>
-            <Typography variant="caption" color="success.dark" fontWeight={800} display="block" mb={0.5}>
-              ENDEREÇO OFICIAL LIBERADO:
-            </Typography>
-            <Typography variant="body2" color="text.primary" fontWeight={800} mb={1.5}>
-              📍 {enderecoCompleto || 'Av. Dr. Ismael Alonso y Alonso, 2000 - Franca/SP'}
-            </Typography>
-
-            <Box 
-              component="iframe" 
-              src={openStreetMapEmbed}
+          {/* PREVISÃO DO TEMPO REAL COMPACTA */}
+          {clima && (
+            <Chip
+              icon={<span style={{ fontSize: '11px', marginLeft: '4px' }}>{clima.icone}</span>}
+              label={`${clima.temperatura}°C • ${clima.condicao}`}
+              size="small"
               sx={{
-                width: '100%',
-                height: 150,
-                borderRadius: 2.5,
-                border: 0,
-                mb: 1.5,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                bgcolor: clima.alertaChuva ? '#FEE2E2' : '#FEF3C7',
+                color: clima.alertaChuva ? '#991B1B' : '#92400E',
+                fontWeight: 800,
+                fontSize: '0.65rem',
+                height: 20,
+                border: clima.alertaChuva ? '1px solid #FCA5A5' : '1px solid #FDE68A',
+                px: 0.2
               }}
             />
+          )}
+        </Box>
+
+        {descricao && (
+          <Typography variant="body2" color="text.secondary" mb={1.2} sx={{ fontStyle: 'italic', bgcolor: '#F8FAFC', p: 0.8, borderRadius: 1.5, fontSize: '0.75rem', lineHeight: 1.35 }}>
+            "{descricao}"
+          </Typography>
+        )}
+
+        {/* MAPA INTERATIVO / MINIMAPA LIBERADO COM LGPD */}
+        {isConfirmado ? (
+          <Box sx={{ mb: 1.5 }}>
+            <Box display="flex" alignItems="center" gap={0.6} mb={0.6}>
+              <ShieldCheck size={14} color="#10B981" />
+              <Typography variant="caption" color="success.main" fontWeight={800} sx={{ fontSize: '0.72rem' }}>
+                Local confirmado: {enderecoCompleto || `${bairro}, Franca/SP`}
+              </Typography>
+            </Box>
+
+            <Box sx={{ position: 'relative', width: '100%', height: 120, borderRadius: 2, overflow: 'hidden', mb: 0.8, border: '1.5px solid #10B981' }}>
+              <Box component="iframe" src={openStreetMapEmbed} sx={{ width: '100%', height: '100%', border: 0 }} />
+            </Box>
 
             <Button
               fullWidth
               variant="outlined"
               color="primary"
-              startIcon={<Navigation size={16} />}
+              size="small"
+              startIcon={<Navigation size={13} />}
               href={mapsUrl}
               target="_blank"
-              sx={{ fontWeight: 800, borderRadius: 2.5, py: 1 }}
+              sx={{ fontWeight: 800, borderRadius: 2, py: 0.6, fontSize: '0.74rem' }}
             >
-              Abrir no Google Maps / GPS
+              Abrir GPS / Google Maps
             </Button>
           </Box>
         ) : (
-          <Alert severity="info" icon={<ShieldAlert size={18} />} sx={{ mb: 2, borderRadius: 2.5, bgcolor: '#EFF6FF' }}>
-            <Typography variant="caption" fontWeight={600} color="primary.dark">
-              <strong>Proteção LGPD (RN02):</strong> O endereço e rota exatos do local são liberados no mapa assim que {isAmistoso ? 'o amistoso for confirmado' : 'sua vaga for confirmada'}.
+          <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 2, bgcolor: '#EFF6FF', py: 0.2, px: 1, '& .MuiAlert-message': { p: 0 } }}>
+            <Typography variant="caption" fontWeight={600} color="primary.dark" sx={{ fontSize: '0.70rem', lineHeight: 1.25 }}>
+              <strong>Proteção LGPD (RN02):</strong> O endereço e mapa exatos são liberados assim que {isAmistoso ? 'o confronto for aceito' : 'sua vaga for confirmada'}.
             </Typography>
           </Alert>
         )}
 
-        {/* BOTÃO DE AÇÃO CONDICIONAL */}
+        {/* BOTÃO DE AÇÃO */}
         {isAmistoso ? (
           <Button
             fullWidth
@@ -300,9 +319,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             color={timeVisitante ? 'success' : 'primary'}
             disabled={Boolean(timeVisitante)}
             onClick={() => onMarcarAmistoso && onMarcarAmistoso(id)}
-            sx={{ py: 1.4, fontWeight: 800, borderRadius: 3 }}
+            sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
           >
-            {timeVisitante ? 'AMISTOSO CONFIRMADO' : 'MARCAR AMISTOSO COM MEU TIME'}
+            {timeVisitante ? 'AMISTOSO CONFIRMADO' : 'DESAFIAR COM MEU TIME'}
           </Button>
         ) : (
           <Button
@@ -311,12 +330,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             color={isConfirmado ? 'success' : 'primary'}
             disabled={isLotado && !isConfirmado}
             onClick={() => !isConfirmado && onSolicitarVaga && onSolicitarVaga(id)}
-            sx={{ py: 1.4, fontWeight: 800, borderRadius: 3 }}
+            sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
           >
-            {isConfirmado ? 'PARTIDA CONFIRMADA' : (isLotado ? 'PARTIDA LOTADA' : 'SOLICITAR VAGA')}
+            {isConfirmado ? 'VAGA CONFIRMADA' : (isLotado ? 'PARTIDA LOTADA' : 'SOLICITAR VAGA')}
           </Button>
         )}
       </CardContent>
     </Card>
   );
 };
+
+export default MatchCard;

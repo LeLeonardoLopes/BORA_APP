@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,10 +16,39 @@ import {
   FormLabel,
   Divider,
   Alert,
-  Chip
+  Chip,
+  CircularProgress,
+  Autocomplete,
+  Collapse
 } from '@mui/material';
-import { Shield, User, MapPin, Navigation, Crosshair, Loader2, CheckCircle2 } from 'lucide-react';
-import { geocodificarEndereco, obterLocalizacaoAtualGPS, Coordenadas } from '../services/geocodingService';
+import { 
+  Shield, 
+  User, 
+  Search, 
+  Crosshair, 
+  Sparkles, 
+  Building2, 
+  Trees, 
+  ChevronDown, 
+  ChevronUp, 
+  History,
+  CheckCircle2
+} from 'lucide-react';
+import { geocodificarEndereco, obterLocalizacaoAtualGPS, consultarViaCep, Coordenadas } from '../services/geocodingService';
+import { CATALOGO_ARENAS_FRANCA, ArenaFranca } from '../data/francaArenas';
+import { InteractiveMapPicker } from './InteractiveMapPicker';
+
+export interface LocalSalvoApp {
+  id: string;
+  nome: string;
+  bairro: string;
+  endereco: string;
+  tipoLocal: 'Publica' | 'Privada';
+  lat: number;
+  lng: number;
+  esporte?: string;
+  dataCriacao: string;
+}
 
 export interface CreateMatchModalProps {
   open: boolean;
@@ -41,6 +70,8 @@ export const MODALIDADES_COLETIVAS = [
   'Handebol'
 ];
 
+const LOCAL_STORAGE_KEY_LOCAIS = '@bora:locais_historico';
+
 export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   open,
   onClose,
@@ -53,6 +84,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [descricao, setDescricao] = useState('');
   const [dataHora, setDataHora] = useState('');
   const [maxVagas, setMaxVagas] = useState(14);
+  
+  // 1º SEQUÊNCIA PRINCIPAL: Bairro, Endereço e Alfinete no Mapa
   const [bairro, setBairro] = useState('São José');
   const [enderecoCompleto, setEnderecoCompleto] = useState('Av. Dr. Ismael Alonso y Alonso, 2000');
   const [coordenadas, setCoordenadas] = useState<Coordenadas>({
@@ -61,6 +94,16 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     origem: 'base_franca',
   });
   const [buscandoGeo, setBuscandoGeo] = useState(false);
+
+  // BOTÃO "MAIS OPÇÕES" (ACORDEÃO RECOLHÍVEL)
+  const [mostrarMaisOpcoes, setMostrarMaisOpcoes] = useState(false);
+
+  // SEÇÃO MAIS OPÇÕES: Histórico Dinâmico e Catálogo Pré-cadastrado
+  const [locaisHistorico, setLocaisHistorico] = useState<LocalSalvoApp[]>([]);
+  const [arenaSelecionada, setArenaSelecionada] = useState<ArenaFranca | null>(null);
+  const [cep, setCep] = useState('');
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState<string | null>(null);
 
   // Taxas e Rateios
   const [taxaCampo, setTaxaCampo] = useState<number | string>('');
@@ -73,6 +116,19 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const valorPorEquipe = valorTotalAmistoso / 2;
   const valorPorAtletaAvulso = maxVagas > 0 ? (valorCampoEfetivo / Number(maxVagas)) : 0;
 
+  // Carrega histórico de locais salvos do app
+  useEffect(() => {
+    try {
+      const salvos = localStorage.getItem(LOCAL_STORAGE_KEY_LOCAIS);
+      if (salvos) {
+        setLocaisHistorico(JSON.parse(salvos));
+      }
+    } catch (e) {
+      console.error('Erro ao ler locais históricos:', e);
+    }
+  }, [open]);
+
+  // Atualização manual de endereço ou bairro com geocodificação
   const handleAtualizarEnderecoOuBairro = async (novoEnd: string, novoBairro: string) => {
     setEnderecoCompleto(novoEnd);
     setBairro(novoBairro);
@@ -85,6 +141,94 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     }
   };
 
+  // Ajuste interativo no mapa arrastando ou clicando no pino
+  const handleCoordenadasMudaramNoMapa = (novaLat: number, novaLng: number) => {
+    setCoordenadas({
+      lat: novaLat,
+      lng: novaLng,
+      origem: 'ajuste_manual_mapa'
+    });
+  };
+
+  // Seleção de Arena Pré-cadastrada no Catálogo
+  const handleSelecionarArenaCatalogo = (arena: ArenaFranca | null) => {
+    setArenaSelecionada(arena);
+    if (!arena) return;
+
+    setTipoLocal(arena.tipo);
+    setBairro(arena.bairro);
+    setEnderecoCompleto(arena.endereco);
+    if (arena.cep) setCep(arena.cep);
+    if (arena.esportesSugeridos.length > 0 && !arena.esportesSugeridos.includes(esporte)) {
+      setEsporte(arena.esportesSugeridos[0]);
+    }
+
+    setCoordenadas({
+      lat: arena.lat,
+      lng: arena.lng,
+      origem: 'catalogo_arena'
+    });
+  };
+
+  // Seleção de Local a partir do Histórico de Partidas Criadas
+  const handleSelecionarLocalHistorico = (local: LocalSalvoApp) => {
+    setBairro(local.bairro);
+    setEnderecoCompleto(local.endereco);
+    setTipoLocal(local.tipoLocal);
+    if (local.esporte) setEsporte(local.esporte);
+    setCoordenadas({
+      lat: local.lat,
+      lng: local.lng,
+      origem: 'catalogo_arena'
+    });
+  };
+
+  // Busca por CEP (ViaCEP)
+  const handleBuscarCep = async () => {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) {
+      setErroCep('Digite um CEP válido com 8 dígitos.');
+      return;
+    }
+
+    setBuscandoCep(true);
+    setErroCep(null);
+    setBuscandoGeo(true);
+
+    try {
+      const dados = await consultarViaCep(cepLimpo);
+      if (dados) {
+        const novoBairro = dados.bairro || bairro;
+        const novoEnd = dados.logradouro ? `${dados.logradouro}, ` : enderecoCompleto;
+        setBairro(novoBairro);
+        setEnderecoCompleto(novoEnd);
+
+        const geo = await geocodificarEndereco(dados.logradouro || novoEnd, novoBairro, dados.localidade || 'Franca, SP');
+        setCoordenadas({ ...geo, origem: 'viacep' });
+      }
+    } catch (err: any) {
+      setErroCep(err.message || 'Erro ao consultar CEP.');
+    } finally {
+      setBuscandoCep(false);
+      setBuscandoGeo(false);
+    }
+  };
+
+  // GPS Atual do dispositivo
+  const handleUsarGPSAtual = async () => {
+    setBuscandoGeo(true);
+    try {
+      const gps = await obterLocalizacaoAtualGPS();
+      setCoordenadas(gps);
+      setEnderecoCompleto(`Local capturado via GPS (${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`);
+    } catch (err: any) {
+      alert(err.message || 'Não foi possível capturar o GPS.');
+    } finally {
+      setBuscandoGeo(false);
+    }
+  };
+
+  // Atalho rápido de bairros conhecidos
   const handleSelecionarBairroRapido = async (nomeBairro: string) => {
     setBairro(nomeBairro);
     const endSugerido = `Campo / Quadra do ${nomeBairro}`;
@@ -98,23 +242,54 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     }
   };
 
-  const handleUsarGPSAtual = async () => {
-    setBuscandoGeo(true);
+  // Salva a localização dinamicamente no aprendizado do app ao publicar a partida
+  const salvarLocalizacaoNoHistorico = (novoLocal: {
+    bairro: string;
+    endereco: string;
+    tipoLocal: 'Publica' | 'Privada';
+    lat: number;
+    lng: number;
+    esporte: string;
+  }) => {
     try {
-      const gps = await obterLocalizacaoAtualGPS();
-      setCoordenadas(gps);
-      if (!enderecoCompleto) {
-        setEnderecoCompleto(`Local capturado via GPS (${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`);
+      const salvosAtuais: LocalSalvoApp[] = locaisHistorico.slice();
+      const jaExiste = salvosAtuais.some(
+        (l) => l.endereco.toLowerCase().trim() === novoLocal.endereco.toLowerCase().trim()
+      );
+
+      if (!jaExiste && novoLocal.endereco.trim()) {
+        const item: LocalSalvoApp = {
+          id: String(Date.now()),
+          nome: novoLocal.endereco.split(',')[0] || novoLocal.bairro,
+          bairro: novoLocal.bairro,
+          endereco: novoLocal.endereco,
+          tipoLocal: novoLocal.tipoLocal,
+          lat: novoLocal.lat,
+          lng: novoLocal.lng,
+          esporte: novoLocal.esporte,
+          dataCriacao: new Date().toISOString()
+        };
+        const listaAtualizada = [item, ...salvosAtuais].slice(0, 20); // guarda os 20 últimos locais
+        localStorage.setItem(LOCAL_STORAGE_KEY_LOCAIS, JSON.stringify(listaAtualizada));
       }
-    } catch (err: any) {
-      alert(err.message || 'Não foi possível capturar o GPS.');
-    } finally {
-      setBuscandoGeo(false);
+    } catch (e) {
+      console.error('Erro ao salvar local no histórico:', e);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Registra e aprende a localização no sistema
+    salvarLocalizacaoNoHistorico({
+      bairro: bairro || 'Franca',
+      endereco: enderecoCompleto || `${bairro}, Franca/SP`,
+      tipoLocal,
+      lat: coordenadas.lat,
+      lng: coordenadas.lng,
+      esporte
+    });
+
     onSuccess({
       id: String(Date.now()),
       esporte,
@@ -138,6 +313,23 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     onClose();
   };
 
+  const obterLabelOrigem = () => {
+    switch (coordenadas.origem) {
+      case 'catalogo_arena':
+        return '🏟️ Local Pré-cadastrado / Histórico';
+      case 'ajuste_manual_mapa':
+        return '🖐️ Alfinete Posicionado Manualmente';
+      case 'viacep':
+        return '📬 Endereço por CEP (ViaCEP)';
+      case 'gps_dispositivo':
+        return '📱 GPS do Dispositivo';
+      case 'satelite_nominatim':
+        return '🛰️ Satélite OpenStreetMap';
+      default:
+        return '📍 Ponto Base Franca/SP';
+    }
+  };
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 900, color: 'primary.main', pb: 1 }}>
@@ -145,8 +337,9 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       </DialogTitle>
       
       <Box component="form" onSubmit={handleSubmit}>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
-          {/* SELEÇÃO DO FORMATO DE JOGO: AVULSO OU AMISTOSO */}
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.2, pt: 1 }}>
+          
+          {/* SELEÇÃO DO FORMATO DE JOGO */}
           <FormControl>
             <FormLabel sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
               Formato da Partida:
@@ -183,7 +376,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             </Alert>
           )}
 
-          {/* SELEÇÃO DO TIPO DE LOCAL: PÚBLICO OU PRIVADO */}
+          {/* TIPO DE LOCAL: PÚBLICO OU PRIVADO */}
           <FormControl>
             <FormLabel sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
               Tipo de Local / Quadra:
@@ -196,12 +389,20 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
               <FormControlLabel 
                 value="Publica" 
                 control={<Radio />} 
-                label="Quadra / Campo Público (100% Gratuito)" 
+                label={
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <Trees size={16} color="#16A34A" /> <span>Quadra / Campo Público (100% Gratuito)</span>
+                  </Box>
+                } 
               />
               <FormControlLabel 
                 value="Privada" 
                 control={<Radio />} 
-                label="Arena / Quadra Privada (Com Aluguel)" 
+                label={
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <Building2 size={16} color="#0066FF" /> <span>Arena / Quadra Privada (Com Aluguel)</span>
+                  </Box>
+                } 
               />
             </RadioGroup>
           </FormControl>
@@ -216,7 +417,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
           {tipoLocal === 'Publica' && formatoJogo === 'Amistoso_Times' && (
             <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px solid #0066FF' }}>
               <Alert severity="success" sx={{ mb: 1.5, borderRadius: 2 }}>
-                🏟️ <strong>Campo Público Gratuito:</strong> A taxa de campo é R$ 0,00. Caso contratarem arbitragem para o amistoso, informe abaixo o valor do juiz para rateio entre os dois times.
+                🏟️ <strong>Campo Público Gratuito:</strong> Taxa de campo R$ 0,00. Caso contratarem arbitragem para o amistoso, informe o valor do juiz para rateio 50%/50%.
               </Alert>
               <TextField
                 label="Taxa do Juiz / Arbitragem (R$) — Opcional"
@@ -249,7 +450,6 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
               <Typography variant="subtitle2" fontWeight={800} color="primary.main" mb={1.5}>
                 💰 Custos do Amistoso Privado (Divididos 50%/50% por equipe)
               </Typography>
-
               <Box display="flex" gap={2} mb={1.5} flexDirection={{ xs: 'column', sm: 'row' }}>
                 <TextField
                   label="Taxa do Campo / Aluguel (R$)"
@@ -273,17 +473,16 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                   placeholder="0.00"
                 />
               </Box>
-
-              {/* Quadro de Rateio Automático Amistoso */}
               <Box sx={{ p: 1.5, bgcolor: '#EFF6FF', borderRadius: 2, border: '1px solid #BFDBFE' }}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                   <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                    Custo Total da Partida:
+                    Campo: R$ {(Number(taxaCampo) || 0).toFixed(2)} + Juiz: R$ {(Number(taxaJuiz) || 0).toFixed(2)}
                   </Typography>
-                  <Typography variant="body2" fontWeight={800} color="text.primary">
-                    R$ {valorTotalAmistoso.toFixed(2)}
+                  <Typography variant="caption" color="text.secondary" fontWeight={800}>
+                    Total: R$ {valorTotalAmistoso.toFixed(2)}
                   </Typography>
                 </Box>
+                <Divider sx={{ my: 0.5 }} />
                 <Box display="flex" justifyContent="space-between" alignItems="center">
                   <Typography variant="subtitle2" color="primary.main" fontWeight={900}>
                     🤝 Valor por Equipe (50% cada):
@@ -299,25 +498,25 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
           {tipoLocal === 'Privada' && formatoJogo === 'Avulso' && (
             <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px solid #0066FF' }}>
               <Typography variant="subtitle2" fontWeight={800} color="primary.main" mb={1.5}>
-                🏟️ Aluguel da Arena / Quadra Privada (Rateio por Vaga)
+                💰 Aluguel de Quadra Privada (Rateio Individual por Vaga)
               </Typography>
               <TextField
-                label="Valor Total do Aluguel do Campo/Quadra (R$)"
+                label="Valor Total do Aluguel (R$)"
                 type="number"
                 fullWidth
                 size="small"
                 inputProps={{ min: 0, step: '5' }}
                 value={taxaCampo}
                 onChange={(e) => setTaxaCampo(e.target.value)}
-                placeholder="Ex: 140.00"
-                helperText="O valor total será rateado igualmente entre os atletas confirmados."
+                placeholder="0.00"
                 required
+                helperText="Taxa de juiz não é cobrada em partidas individuais avulsas."
               />
               {valorCampoEfetivo > 0 && (
                 <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#EFF6FF', borderRadius: 2, border: '1px solid #BFDBFE' }}>
                   <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="subtitle2" color="primary.main" fontWeight={800}>
-                      👥 Custo Estimado por Atleta ({maxVagas} vagas):
+                    <Typography variant="subtitle2" color="primary.main" fontWeight={900}>
+                      👤 Custo por Atleta ({maxVagas} vagas):
                     </Typography>
                     <Typography variant="subtitle1" color="primary.main" fontWeight={900}>
                       R$ {valorPorAtletaAvulso.toFixed(2)}
@@ -328,25 +527,25 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             </Box>
           )}
 
-          <Divider />
-
           {/* MODALIDADE ESPORTIVA */}
           <TextField
             select
             label="Modalidade Esportiva"
             fullWidth
+            required
             value={esporte}
             onChange={(e) => setEsporte(e.target.value)}
           >
-            {MODALIDADES_COLETIVAS.map((esp) => (
-              <MenuItem key={esp} value={esp}>
-                {esp}
+            {MODALIDADES_COLETIVAS.map((opcao) => (
+              <MenuItem key={opcao} value={opcao}>
+                {opcao}
               </MenuItem>
             ))}
           </TextField>
 
+          {/* DATA E HORA */}
           <TextField
-            label="Data e Hora da Partida"
+            label="Data e Horário do Jogo"
             type="datetime-local"
             fullWidth
             required
@@ -357,7 +556,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
 
           {formatoJogo === 'Avulso' && (
             <TextField
-              label="Número Máximo de Vagas Individuais"
+              label="Total de Vagas Individuais"
               type="number"
               fullWidth
               required
@@ -367,112 +566,202 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             />
           )}
 
-          {/* ATALHOS RÁPIDOS DE BAIRROS DE FRANCA */}
+          <Divider sx={{ my: 0.5 }} />
+
+          {/* ========================================================================= */}
+          {/* 📍 SEQUÊNCIA PRINCIPAL: 1. ENDEREÇO & BAIRRO -> 2. MAPA COM ALFINETE      */}
+          {/* ========================================================================= */}
           <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={800} display="block" mb={0.8}>
-              📍 Sugestões de Bairros e Arenas em Franca:
+            <Typography variant="subtitle2" fontWeight={900} color="primary.main" mb={1.5}>
+              📍 Localização da Partida
             </Typography>
-            <Box sx={{ display: 'flex', gap: 0.8, overflowX: 'auto', pb: 0.5, scrollbarWidth: 'none' }}>
-              {['São José', 'Parque Progresso', 'Vila Nova', 'Centro', 'Estação', 'Leporace', 'Aeroporto', 'Paulistano'].map((nomeB) => (
-                <Chip
-                  key={nomeB}
-                  label={nomeB}
-                  size="small"
-                  onClick={() => handleSelecionarBairroRapido(nomeB)}
-                  sx={{
-                    fontWeight: bairro.toLowerCase() === nomeB.toLowerCase() ? 800 : 600,
-                    bgcolor: bairro.toLowerCase() === nomeB.toLowerCase() ? 'primary.main' : '#EFF6FF',
-                    color: bairro.toLowerCase() === nomeB.toLowerCase() ? '#fff' : 'primary.main',
-                    cursor: 'pointer',
-                  }}
-                />
-              ))}
+
+            {/* 1. Campos de Bairro e Endereço */}
+            <Box display="flex" flexDirection="column" gap={1.5} mb={2}>
+              <TextField
+                label="Bairro (Franca/SP)"
+                fullWidth
+                required
+                value={bairro}
+                onChange={(e) => handleAtualizarEnderecoOuBairro(enderecoCompleto, e.target.value)}
+              />
+
+              <TextField
+                label="Endereço Completo (Rua, Número)"
+                fullWidth
+                required
+                placeholder="Ex: Av. Alonso y Alonso, 2000"
+                value={enderecoCompleto}
+                onChange={(e) => handleAtualizarEnderecoOuBairro(e.target.value, bairro)}
+                helperText="Digite o local ou posicione o alfinete diretamente no mapa abaixo."
+              />
             </Box>
+
+            {/* 2. Mapa Interativo com Alfinete Arrastável */}
+            <InteractiveMapPicker
+              lat={coordenadas.lat}
+              lng={coordenadas.lng}
+              label={enderecoCompleto || bairro}
+              origemTexto={obterLabelOrigem()}
+              buscando={buscandoGeo}
+              onChangeCoordinates={handleCoordenadasMudaramNoMapa}
+            />
           </Box>
 
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="caption" color="text.secondary" fontWeight={800}>
-              Geolocalização e Coordenadas do Campo:
-            </Typography>
+          {/* ========================================================================= */}
+          {/* 🔽 BOTÃO "MAIS OPÇÕES" COM SETA PARA BAIXO                                */}
+          {/* ========================================================================= */}
+          <Box sx={{ mt: 0.5 }}>
             <Button
-              size="small"
+              fullWidth
               variant="outlined"
-              startIcon={<Crosshair size={14} />}
-              onClick={handleUsarGPSAtual}
-              sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', py: 0.2 }}
+              color="primary"
+              onClick={() => setMostrarMaisOpcoes(!mostrarMaisOpcoes)}
+              endIcon={mostrarMaisOpcoes ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              sx={{
+                fontWeight: 800,
+                textTransform: 'none',
+                py: 1.2,
+                borderRadius: 2.5,
+                bgcolor: mostrarMaisOpcoes ? '#EFF6FF' : '#F8FAFC',
+                borderWidth: '1.5px',
+                borderColor: '#BFDBFE',
+                justifyContent: 'space-between',
+                px: 2
+              }}
             >
-              Usar Meu GPS Atual
-            </Button>
-          </Box>
-
-          <TextField
-            label="Bairro em Franca/SP"
-            fullWidth
-            required
-            value={bairro}
-            onChange={(e) => handleAtualizarEnderecoOuBairro(enderecoCompleto, e.target.value)}
-          />
-
-          <TextField
-            label="Endereço Completo do Campo/Quadra (Protegido por LGPD RN02)"
-            fullWidth
-            required
-            placeholder="Ex: Av. Dr. Ismael Alonso y Alonso, 2000"
-            value={enderecoCompleto}
-            onChange={(e) => handleAtualizarEnderecoOuBairro(e.target.value, bairro)}
-            helperText="O minimapa converte o endereço automaticamente em coordenadas GPS."
-          />
-
-          {/* MINIMAPA INTERATIVO DINÂMICO CONECTADO AO ENDEREÇO & SATÉLITE */}
-          <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1.5px solid #0066FF', bgcolor: '#F8FAFC' }}>
-            <Box sx={{ px: 2, py: 1, bgcolor: '#EFF6FF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #BFDBFE' }}>
-              <Box display="flex" alignItems="center" gap={0.8}>
-                <MapPin size={16} color="#0066FF" />
-                <Typography variant="caption" fontWeight={900} color="primary.main">
-                  COORDENADAS: ({coordenadas.lat.toFixed(5)}, {coordenadas.lng.toFixed(5)})
-                </Typography>
-              </Box>
-              <Chip
-                size="small"
-                label={
-                  buscandoGeo
-                    ? 'Buscando Satélite...'
-                    : coordenadas.origem === 'gps_dispositivo'
-                    ? '📱 GPS Dispositivo'
-                    : coordenadas.origem === 'satelite_nominatim'
-                    ? '🛰️ Satélite OpenStreetMap'
-                    : '📍 Base Franca/SP'
-                }
-                sx={{
-                  fontWeight: 800,
-                  fontSize: '0.7rem',
-                  bgcolor: buscandoGeo ? '#FEF3C7' : '#DCFCE7',
-                  color: buscandoGeo ? '#92400E' : '#166534',
-                }}
-              />
-            </Box>
-
-            <Box sx={{ position: 'relative', width: '100%', height: 160, bgcolor: '#E2E8F0' }}>
-              <Box
-                component="iframe"
-                key={`${coordenadas.lat}-${coordenadas.lng}`}
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordenadas.lng - 0.004}%2C${coordenadas.lat - 0.004}%2C${coordenadas.lng + 0.004}%2C${coordenadas.lat + 0.004}&layer=mapnik&marker=${coordenadas.lat}%2C${coordenadas.lng}`}
-                sx={{
-                  width: '100%',
-                  height: '100%',
-                  border: 0,
-                  display: 'block'
-                }}
-              />
-            </Box>
-
-            <Box sx={{ p: 1, px: 1.5, bgcolor: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                {enderecoCompleto ? `📌 Alfinete cravado no local: ${enderecoCompleto}` : `📌 Alfinete fixado em ${bairro}, Franca/SP`}
+              <span>{mostrarMaisOpcoes ? 'Ocultar opções avançadas de localização' : 'Mais opções de localização'}</span>
+              <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main', opacity: 0.85 }}>
+                {mostrarMaisOpcoes ? 'Menos' : 'Catálogo, Histórico, CEP e GPS'}
               </Typography>
-            </Box>
+            </Button>
+
+            {/* CONTEÚDO EXPANSÍVEL DE MAIS OPÇÕES */}
+            <Collapse in={mostrarMaisOpcoes} timeout="auto" unmountOnExit>
+              <Box sx={{ mt: 2, p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px dashed #0066FF', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                
+                {/* 1. SUGESTÕES DE PARTIDAS JÁ CRIADAS / HISTÓRICO DINÂMICO */}
+                {locaisHistorico.length > 0 && (
+                  <Box>
+                    <Box display="flex" alignItems="center" gap={0.8} mb={1}>
+                      <History size={16} color="#0066FF" />
+                      <Typography variant="caption" color="text.primary" fontWeight={900}>
+                        Locais recentes utilizados no app ({locaisHistorico.length}):
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.8, overflowX: 'auto', pb: 0.5, scrollbarWidth: 'none' }}>
+                      {locaisHistorico.map((loc) => (
+                        <Chip
+                          key={loc.id}
+                          icon={<CheckCircle2 size={13} color="#0066FF" />}
+                          label={`${loc.nome} (${loc.bairro})`}
+                          size="small"
+                          onClick={() => handleSelecionarLocalHistorico(loc)}
+                          sx={{
+                            fontWeight: 700,
+                            bgcolor: '#FFFFFF',
+                            border: '1px solid #BFDBFE',
+                            color: 'primary.main',
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: '#EFF6FF' }
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* 2. SELECIONAR DO PRÉ-CADASTRADO (CATÁLOGO DE FRANCA) */}
+                <Box>
+                  <Box display="flex" alignItems="center" gap={0.8} mb={0.8}>
+                    <Sparkles size={16} color="#0066FF" />
+                    <Typography variant="caption" color="text.primary" fontWeight={900}>
+                      Selecionar Campo ou Arena Pré-cadastrada em Franca:
+                    </Typography>
+                  </Box>
+                  <Autocomplete
+                    options={CATALOGO_ARENAS_FRANCA}
+                    getOptionLabel={(option) => `${option.nome} — [${option.tipo === 'Publica' ? 'Público' : 'Privado'}] (${option.bairro})`}
+                    value={arenaSelecionada}
+                    onChange={(_, newValue) => handleSelecionarArenaCatalogo(newValue)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Catálogo de Campos e Arenas de Franca"
+                        size="small"
+                        placeholder="Ex: CEPEL, Continental, Pedrocão, Arena Franca..."
+                      />
+                    )}
+                  />
+                </Box>
+
+                {/* 3. ATALHOS RÁPIDOS DE BAIRROS */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" fontWeight={800} display="block" mb={0.8}>
+                    Atalhos Rápidos de Bairros:
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.8, overflowX: 'auto', pb: 0.5, scrollbarWidth: 'none' }}>
+                    {['São José', 'Parque Progresso', 'Vila Nova', 'Centro', 'Estação', 'Leporace', 'Aeroporto', 'Paulistano'].map((nomeB) => (
+                      <Chip
+                        key={nomeB}
+                        label={nomeB}
+                        size="small"
+                        onClick={() => handleSelecionarBairroRapido(nomeB)}
+                        sx={{
+                          fontWeight: bairro.toLowerCase() === nomeB.toLowerCase() ? 800 : 600,
+                          bgcolor: bairro.toLowerCase() === nomeB.toLowerCase() ? 'primary.main' : '#FFFFFF',
+                          color: bairro.toLowerCase() === nomeB.toLowerCase() ? '#fff' : 'text.primary',
+                          border: '1px solid #E2E8F0',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+
+                {/* 4. BUSCA POR CEP & GPS DO DISPOSITIVO */}
+                <Box display="flex" gap={1.5} flexDirection={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Box display="flex" gap={1}>
+                      <TextField
+                        label="Buscar por CEP"
+                        size="small"
+                        placeholder="Ex: 14401-426"
+                        value={cep}
+                        onChange={(e) => setCep(e.target.value)}
+                        error={Boolean(erroCep)}
+                        helperText={erroCep}
+                        sx={{ flex: 1 }}
+                      />
+                      <Button
+                        variant="outlined"
+                        onClick={handleBuscarCep}
+                        disabled={buscandoCep}
+                        startIcon={buscandoCep ? <CircularProgress size={16} /> : <Search size={16} />}
+                        sx={{ fontWeight: 800, textTransform: 'none', px: 2 }}
+                      >
+                        CEP
+                      </Button>
+                    </Box>
+                  </Box>
+
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<Crosshair size={15} />}
+                    onClick={handleUsarGPSAtual}
+                    sx={{ textTransform: 'none', fontWeight: 800, py: 1, px: 2, height: 40, whiteSpace: 'nowrap' }}
+                  >
+                    Usar Meu GPS
+                  </Button>
+                </Box>
+
+              </Box>
+            </Collapse>
           </Box>
 
+          {/* DESCRIÇÃO / OBSERVAÇÕES */}
           <TextField
             label="Descrição / Regras do Jogo ou Amistoso"
             multiline

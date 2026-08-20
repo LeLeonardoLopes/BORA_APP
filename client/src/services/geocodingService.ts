@@ -2,7 +2,17 @@ export interface Coordenadas {
   lat: number;
   lng: number;
   displayName?: string;
-  origem: 'satelite_nominatim' | 'base_franca' | 'gps_dispositivo' | 'fallback_centro';
+  origem: 'satelite_nominatim' | 'base_franca' | 'gps_dispositivo' | 'catalogo_arena' | 'viacep' | 'ajuste_manual_mapa' | 'fallback_centro';
+}
+
+export interface ViaCepResponse {
+  cep: string;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  erro?: boolean;
 }
 
 export const FRANCA_PONTOS_REFERENCIA: Record<string, { lat: number; lng: number }> = {
@@ -28,6 +38,28 @@ export const FRANCA_PONTOS_REFERENCIA: Record<string, { lat: number; lng: number
   'noêmia': { lat: -20.5480, lng: -47.4020 },
   'angelo tomazi': { lat: -20.5260, lng: -47.3910 }
 };
+
+/**
+ * Consulta oficial de endereço pelo CEP brasileiro via ViaCEP API.
+ */
+export async function consultarViaCep(cep: string): Promise<ViaCepResponse | null> {
+  const cepLimpo = cep.replace(/\D/g, '');
+  if (cepLimpo.length !== 8) {
+    throw new Error('O CEP deve conter exatamente 8 dígitos numéricos.');
+  }
+
+  const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+  if (!response.ok) {
+    throw new Error('Falha ao comunicar com o serviço ViaCEP.');
+  }
+
+  const data: ViaCepResponse = await response.json();
+  if (data.erro) {
+    throw new Error('CEP não encontrado na base oficial dos Correios.');
+  }
+
+  return data;
+}
 
 /**
  * Converte endereço ou bairro textual em coordenadas exatas (lat, lng).
