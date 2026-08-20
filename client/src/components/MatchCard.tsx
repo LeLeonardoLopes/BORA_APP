@@ -27,6 +27,9 @@ export interface MatchCardProps {
   tipoLocal?: 'Publica' | 'Privada';
   timeMandante?: string;
   timeVisitante?: string;
+  taxaCampo?: number;
+  taxaJuiz?: number;
+  valorPorEquipe?: number;
   onSolicitarVaga?: (id: string) => void;
   onMarcarAmistoso?: (id: string) => void;
 }
@@ -47,6 +50,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   tipoLocal = 'Publica',
   timeMandante,
   timeVisitante,
+  taxaCampo = 0,
+  taxaJuiz = 0,
+  valorPorEquipe = 0,
   onSolicitarVaga,
   onMarcarAmistoso,
 }) => {
@@ -140,6 +146,32 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               >
                 {timeVisitante ? '🛡️ ' + timeVisitante : '❓ Aguardando Desafiante'}
               </Typography>
+            </Box>
+
+            {/* Divisão de Taxas (Campo + Juiz) por Equipe */}
+            <Divider sx={{ my: 1.5 }} />
+            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+              <Box textAlign="left">
+                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                  Custo por Equipe (50% cada):
+                </Typography>
+                <Typography variant="subtitle2" fontWeight={900} color="primary.main">
+                  {((taxaCampo || 0) + (taxaJuiz || 0)) > 0 
+                    ? `🤝 R$ ${(valorPorEquipe || (((taxaCampo || 0) + (taxaJuiz || 0)) / 2)).toFixed(2)}`
+                    : '🎉 Jogo Gratuito (Sem taxas)'}
+                </Typography>
+              </Box>
+
+              {((taxaCampo || 0) + (taxaJuiz || 0)) > 0 && (
+                <Box textAlign="right">
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                    🏟️ Campo: R$ {(taxaCampo || 0).toFixed(2)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                    ⚖️ Juiz: R$ {(taxaJuiz || 0).toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Box>
         ) : null}

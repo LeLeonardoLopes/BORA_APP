@@ -54,6 +54,15 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [bairro, setBairro] = useState('São José');
   const [enderecoCompleto, setEnderecoCompleto] = useState('');
 
+  // Taxas do Amistoso (Campo + Juiz) divididas por equipe
+  const [taxaCampo, setTaxaCampo] = useState<number | string>(0);
+  const [taxaJuiz, setTaxaJuiz] = useState<number | string>(0);
+
+  const valorCampoNum = Number(taxaCampo) || 0;
+  const valorJuizNum = Number(taxaJuiz) || 0;
+  const valorTotalAmistoso = valorCampoNum + valorJuizNum;
+  const valorPorEquipe = valorTotalAmistoso / 2;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSuccess({
@@ -67,8 +76,11 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       maxVagas: formatoJogo === 'Amistoso_Times' ? 2 : Number(maxVagas),
       formatoJogo,
       tipoLocal,
-      timeMandante: formatoJogo === 'Amistoso_Times' ? (meuTime?.nome || 'Franca F.C.') : null,
+      timeMandante: formatoJogo === 'Amistoso_Times' ? (meuTime?.nome || 'Bora Franca F.C.') : null,
       timeVisitante: null,
+      taxaCampo: formatoJogo === 'Amistoso_Times' ? valorCampoNum : 0,
+      taxaJuiz: formatoJogo === 'Amistoso_Times' ? valorJuizNum : 0,
+      valorPorEquipe: formatoJogo === 'Amistoso_Times' ? valorPorEquipe : 0,
     });
     onClose();
   };
@@ -140,6 +152,58 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
               />
             </RadioGroup>
           </FormControl>
+
+          {/* CUSTOS DO AMISTOSO: TAXA DO CAMPO E TAXA DO JUIZ (DIVIDIDO 50%/50%) */}
+          {formatoJogo === 'Amistoso_Times' && (
+            <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px solid #0066FF' }}>
+              <Typography variant="subtitle2" fontWeight={800} color="primary.main" mb={1.5}>
+                💰 Taxa do Campo & Juiz (Dividido igualmente por equipe)
+              </Typography>
+
+              <Box display="flex" gap={2} mb={1.5} flexDirection={{ xs: 'column', sm: 'row' }}>
+                <TextField
+                  label="Taxa do Campo / Aluguel (R$)"
+                  type="number"
+                  fullWidth
+                  size="small"
+                  inputProps={{ min: 0, step: '5' }}
+                  value={taxaCampo}
+                  onChange={(e) => setTaxaCampo(e.target.value)}
+                  placeholder="0.00"
+                />
+                <TextField
+                  label="Taxa do Juiz / Arbitragem (R$)"
+                  type="number"
+                  fullWidth
+                  size="small"
+                  inputProps={{ min: 0, step: '5' }}
+                  value={taxaJuiz}
+                  onChange={(e) => setTaxaJuiz(e.target.value)}
+                  placeholder="0.00"
+                />
+              </Box>
+
+              {/* Quadro de Rateio Automático */}
+              <Box sx={{ p: 1.5, bgcolor: '#EFF6FF', borderRadius: 2, border: '1px solid #BFDBFE' }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                    Custo Total da Partida:
+                  </Typography>
+                  <Typography variant="body2" fontWeight={800} color="text.primary">
+                    R$ {valorTotalAmistoso.toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle2" color="primary.main" fontWeight={900}>
+                    🤝 Valor por Equipe (50% cada):
+                  </Typography>
+                  <Typography variant="subtitle1" color="primary.main" fontWeight={900}>
+                    R$ {valorPorEquipe.toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
 
           <Divider />
 

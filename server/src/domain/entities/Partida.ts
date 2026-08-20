@@ -16,6 +16,8 @@ export interface PartidaProps {
   lat: number;
   lng: number;
   statusPartida: StatusPartidaEnum;
+  taxaCampo?: number;
+  taxaJuiz?: number;
   criadoEm?: Date;
   atualizadoEm?: Date;
 }
@@ -52,6 +54,9 @@ export class Partida {
   public get lat(): number { return this.props.lat; }
   public get lng(): number { return this.props.lng; }
   public get statusPartida(): StatusPartidaEnum { return this.props.statusPartida; }
+  public get taxaCampo(): number { return this.props.taxaCampo || 0; }
+  public get taxaJuiz(): number { return this.props.taxaJuiz || 0; }
+  public get valorPorEquipe(): number { return (this.taxaCampo + this.taxaJuiz) / 2; }
 
   // Regra RN03: Bloqueio de cancelamento direto quando a partida estiver lotada
   public cancelar(solicitanteId: string): void {

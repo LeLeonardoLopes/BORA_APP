@@ -78,6 +78,9 @@ export const App: React.FC = () => {
       tipoLocal: 'Publica',
       timeMandante: 'Bora Franca F.C.',
       timeVisitante: null,
+      taxaCampo: 140,
+      taxaJuiz: 80,
+      valorPorEquipe: 110,
       isConfirmado: true
     },
     {
@@ -110,6 +113,9 @@ export const App: React.FC = () => {
       tipoLocal: 'Privada',
       timeMandante: 'Vila Nova E.C.',
       timeVisitante: 'União da Estação',
+      taxaCampo: 180,
+      taxaJuiz: 60,
+      valorPorEquipe: 120,
       isConfirmado: false
     }
   ]);
