@@ -18,7 +18,8 @@ import {
   Alert,
   Chip
 } from '@mui/material';
-import { Shield, User, MapPin, Navigation } from 'lucide-react';
+import { Shield, User, MapPin, Navigation, Crosshair, Loader2, CheckCircle2 } from 'lucide-react';
+import { geocodificarEndereco, obterLocalizacaoAtualGPS, Coordenadas } from '../services/geocodingService';
 
 export interface CreateMatchModalProps {
   open: boolean;
@@ -40,37 +41,6 @@ export const MODALIDADES_COLETIVAS = [
   'Handebol'
 ];
 
-export const BAIRROS_COORDENADAS_FRANCA: Record<string, { lat: number; lng: number }> = {
-  'são josé': { lat: -20.534215, lng: -47.401258 },
-  'sao jose': { lat: -20.534215, lng: -47.401258 },
-  'continental': { lat: -20.534215, lng: -47.401258 },
-  'parque progresso': { lat: -20.54112, lng: -47.39564 },
-  'progresso': { lat: -20.54112, lng: -47.39564 },
-  'cepel': { lat: -20.54112, lng: -47.39564 },
-  'paulo vi': { lat: -20.54112, lng: -47.39564 },
-  'vila nova': { lat: -20.52894, lng: -47.41289 },
-  'centro': { lat: -20.5388, lng: -47.4005 },
-  'estação': { lat: -20.5310, lng: -47.4080 },
-  'estacao': { lat: -20.5310, lng: -47.4080 },
-  'leporace': { lat: -20.5050, lng: -47.4180 },
-  'aeroporto': { lat: -20.5620, lng: -47.3780 },
-  'paulistano': { lat: -20.5220, lng: -47.3850 },
-  'brasil': { lat: -20.5360, lng: -47.4050 },
-  'santa efigênia': { lat: -20.5250, lng: -47.3980 },
-  'santa cruz': { lat: -20.5450, lng: -47.4080 },
-  'parque universitário': { lat: -20.5500, lng: -47.3800 },
-};
-
-function resolverGeolocalizacao(endereco: string, bairroNome: string): { lat: number; lng: number } {
-  const busca = `${endereco} ${bairroNome}`.toLowerCase();
-  for (const [chave, coords] of Object.entries(BAIRROS_COORDENADAS_FRANCA)) {
-    if (busca.includes(chave)) {
-      return coords;
-    }
-  }
-  return { lat: -20.5388, lng: -47.4005 };
-}
-
 export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   open,
   onClose,
@@ -85,7 +55,12 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [maxVagas, setMaxVagas] = useState(14);
   const [bairro, setBairro] = useState('São José');
   const [enderecoCompleto, setEnderecoCompleto] = useState('Av. Dr. Ismael Alonso y Alonso, 2000');
-  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: -20.534215, lng: -47.401258 });
+  const [coordenadas, setCoordenadas] = useState<Coordenadas>({
+    lat: -20.534215,
+    lng: -47.401258,
+    origem: 'base_franca',
+  });
+  const [buscandoGeo, setBuscandoGeo] = useState(false);
 
   // Taxas e Rateios
   const [taxaCampo, setTaxaCampo] = useState<number | string>('');
@@ -98,34 +73,44 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const valorPorEquipe = valorTotalAmistoso / 2;
   const valorPorAtletaAvulso = maxVagas > 0 ? (valorCampoEfetivo / Number(maxVagas)) : 0;
 
-  const handleAtualizarEnderecoOuBairro = (novoEnd: string, novoBairro: string) => {
+  const handleAtualizarEnderecoOuBairro = async (novoEnd: string, novoBairro: string) => {
     setEnderecoCompleto(novoEnd);
     setBairro(novoBairro);
-    
-    // Resolução imediata pela base local de alta precisão de Franca
-    const localCoords = resolverGeolocalizacao(novoEnd, novoBairro);
-    setCoords(localCoords);
-
-    // Refinamento geográfico dinâmico via Nominatim
-    if (novoEnd.trim().length > 3) {
-      const q = `${novoEnd}, ${novoBairro}, Franca, SP`;
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.length > 0 && data[0].lat && data[0].lon) {
-            setCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
-          }
-        })
-        .catch(() => {});
+    setBuscandoGeo(true);
+    try {
+      const geo = await geocodificarEndereco(novoEnd, novoBairro);
+      setCoordenadas(geo);
+    } finally {
+      setBuscandoGeo(false);
     }
   };
 
-  const handleSelecionarBairroRapido = (nomeBairro: string) => {
-    const coordsBairro = BAIRROS_COORDENADAS_FRANCA[nomeBairro.toLowerCase()] || { lat: -20.5388, lng: -47.4005 };
+  const handleSelecionarBairroRapido = async (nomeBairro: string) => {
     setBairro(nomeBairro);
     const endSugerido = `Campo / Quadra do ${nomeBairro}`;
     setEnderecoCompleto(endSugerido);
-    setCoords(coordsBairro);
+    setBuscandoGeo(true);
+    try {
+      const geo = await geocodificarEndereco(endSugerido, nomeBairro);
+      setCoordenadas(geo);
+    } finally {
+      setBuscandoGeo(false);
+    }
+  };
+
+  const handleUsarGPSAtual = async () => {
+    setBuscandoGeo(true);
+    try {
+      const gps = await obterLocalizacaoAtualGPS();
+      setCoordenadas(gps);
+      if (!enderecoCompleto) {
+        setEnderecoCompleto(`Local capturado via GPS (${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Não foi possível capturar o GPS.');
+    } finally {
+      setBuscandoGeo(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -137,8 +122,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       dataHora: dataHora || new Date(Date.now() + 86400000).toISOString(),
       bairro: bairro || 'Franca',
       enderecoCompleto: enderecoCompleto || `${bairro}, Franca/SP`,
-      lat: coords.lat,
-      lng: coords.lng,
+      lat: coordenadas.lat,
+      lng: coordenadas.lng,
       vagasPreenchidas: 1,
       maxVagas: formatoJogo === 'Amistoso_Times' ? 2 : Number(maxVagas),
       formatoJogo,
@@ -405,6 +390,21 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             </Box>
           </Box>
 
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="caption" color="text.secondary" fontWeight={800}>
+              Geolocalização e Coordenadas do Campo:
+            </Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Crosshair size={14} />}
+              onClick={handleUsarGPSAtual}
+              sx={{ textTransform: 'none', fontWeight: 800, fontSize: '0.75rem', py: 0.2 }}
+            >
+              Usar Meu GPS Atual
+            </Button>
+          </Box>
+
           <TextField
             label="Bairro em Franca/SP"
             fullWidth
@@ -420,36 +420,55 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             placeholder="Ex: Av. Dr. Ismael Alonso y Alonso, 2000"
             value={enderecoCompleto}
             onChange={(e) => handleAtualizarEnderecoOuBairro(e.target.value, bairro)}
-            helperText="O minimapa abaixo navega em tempo real para o endereço ou bairro digitado."
+            helperText="O minimapa converte o endereço automaticamente em coordenadas GPS."
           />
 
-          {/* MINIMAPA INTERATIVO DINÂMICO CONECTADO AO ENDEREÇO */}
+          {/* MINIMAPA INTERATIVO DINÂMICO CONECTADO AO ENDEREÇO & SATÉLITE */}
           <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1.5px solid #0066FF', bgcolor: '#F8FAFC' }}>
             <Box sx={{ px: 2, py: 1, bgcolor: '#EFF6FF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #BFDBFE' }}>
               <Box display="flex" alignItems="center" gap={0.8}>
                 <MapPin size={16} color="#0066FF" />
                 <Typography variant="caption" fontWeight={900} color="primary.main">
-                  MINIMAPA DO LOCAL ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
+                  COORDENADAS: ({coordenadas.lat.toFixed(5)}, {coordenadas.lng.toFixed(5)})
                 </Typography>
               </Box>
-              <Typography variant="caption" fontWeight={800} color="text.secondary">
-                📍 {bairro || 'Franca/SP'}
-              </Typography>
+              <Chip
+                size="small"
+                label={
+                  buscandoGeo
+                    ? 'Buscando Satélite...'
+                    : coordenadas.origem === 'gps_dispositivo'
+                    ? '📱 GPS Dispositivo'
+                    : coordenadas.origem === 'satelite_nominatim'
+                    ? '🛰️ Satélite OpenStreetMap'
+                    : '📍 Base Franca/SP'
+                }
+                sx={{
+                  fontWeight: 800,
+                  fontSize: '0.7rem',
+                  bgcolor: buscandoGeo ? '#FEF3C7' : '#DCFCE7',
+                  color: buscandoGeo ? '#92400E' : '#166534',
+                }}
+              />
             </Box>
-            <Box
-              component="iframe"
-              key={`${coords.lat}-${coords.lng}`}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.005}%2C${coords.lat - 0.005}%2C${coords.lng + 0.005}%2C${coords.lat + 0.005}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`}
-              sx={{
-                width: '100%',
-                height: 150,
-                border: 0,
-                display: 'block'
-              }}
-            />
+
+            <Box sx={{ position: 'relative', width: '100%', height: 160, bgcolor: '#E2E8F0' }}>
+              <Box
+                component="iframe"
+                key={`${coordenadas.lat}-${coordenadas.lng}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordenadas.lng - 0.004}%2C${coordenadas.lat - 0.004}%2C${coordenadas.lng + 0.004}%2C${coordenadas.lat + 0.004}&layer=mapnik&marker=${coordenadas.lat}%2C${coordenadas.lng}`}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  border: 0,
+                  display: 'block'
+                }}
+              />
+            </Box>
+
             <Box sx={{ p: 1, px: 1.5, bgcolor: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                {enderecoCompleto ? `📌 Pin no endereço: ${enderecoCompleto}` : `📌 Pin fixado no bairro ${bairro}, Franca/SP`}
+                {enderecoCompleto ? `📌 Alfinete cravado no local: ${enderecoCompleto}` : `📌 Alfinete fixado em ${bairro}, Franca/SP`}
               </Typography>
             </Box>
           </Box>
