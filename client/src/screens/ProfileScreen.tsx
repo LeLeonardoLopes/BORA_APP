@@ -14,7 +14,7 @@ import {
   Divider,
   MenuItem
 } from '@mui/material';
-import { Camera, Star, ShieldCheck, User, Shield, Check, Database, Save } from 'lucide-react';
+import { Camera, Star, ShieldCheck, User, Shield, Check, Save } from 'lucide-react';
 import { api } from '../services/api';
 
 export interface ProfileScreenProps {
@@ -104,10 +104,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         const base64Image = reader.result as string;
         if (isTeam) {
           setEscudoTime(base64Image);
-          setToastMsg('Escudo selecionado! Clique em Salvar para gravar no banco.');
+          setToastMsg('Escudo do time selecionado!');
         } else {
           setFotoUrl(base64Image);
-          setToastMsg('Foto selecionada! Clique em Salvar para gravar no banco.');
+          setToastMsg('Foto de perfil selecionada!');
         }
         setToastSeverity('info');
         setToastAberto(true);
@@ -124,8 +124,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  // Sincronização direta com a API e Banco de Dados
-  const handleSalvarNoBanco = async (e?: React.FormEvent) => {
+  // Salvar alterações
+  const handleSalvar = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setSalvando(true);
 
@@ -152,15 +152,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     };
 
     try {
-      // 1. Persistência no Backend (API REST + PostgreSQL/PostGIS)
       await api.put('/users/profile', dadosCompletos);
-
-      // 2. Persistência local e atualização de estado no App
       onSalvarPerfil(dadosCompletos);
       localStorage.setItem('@bora:user', JSON.stringify(dadosCompletos));
 
       setToastSeverity('success');
-      setToastMsg('✅ Perfil sincronizado com sucesso no Banco de Dados!');
+      setToastMsg('Perfil salvo com sucesso!');
       setToastAberto(true);
     } catch (err: any) {
       console.warn('Fallback local ativo:', err);
@@ -168,7 +165,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       localStorage.setItem('@bora:user', JSON.stringify(dadosCompletos));
 
       setToastSeverity('success');
-      setToastMsg('✅ Perfil atualizado e salvo localmente com sucesso!');
+      setToastMsg('Perfil salvo com sucesso!');
       setToastAberto(true);
     } finally {
       setSalvando(false);
@@ -245,32 +242,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </Box>
         </Box>
       </Card>
-
-      {/* Botão de Destaque: SALVAR NO BANCO */}
-      <Box sx={{ mb: 3 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          size="large"
-          disabled={salvando}
-          onClick={() => handleSalvarNoBanco()}
-          startIcon={salvando ? <CircularProgress size={20} color="inherit" /> : <Database size={20} />}
-          sx={{
-            py: 1.8,
-            borderRadius: 3,
-            bgcolor: '#0066FF',
-            color: '#FFFFFF',
-            fontWeight: 900,
-            fontSize: '1rem',
-            boxShadow: '0 6px 20px rgba(0, 102, 255, 0.35)',
-            '&:hover': {
-              bgcolor: '#0052CC',
-            },
-          }}
-        >
-          {salvando ? 'SINCRONIZANDO COM O BANCO...' : '💾 SALVAR E SINCRONIZAR NO BANCO DE DADOS'}
-        </Button>
-      </Box>
 
       {/* Módulo: Meu Time / Equipe (Dono do Time & Amistosos) */}
       <Card sx={{ p: 2.5, mb: 3, border: '1.5px solid #0066FF', bgcolor: '#FFFFFF' }}>
@@ -365,6 +336,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 value={bairroTime}
                 onChange={(e) => setBairroTime(e.target.value)}
               />
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={salvando}
+                onClick={() => handleSalvar()}
+                sx={{
+                  fontWeight: 800,
+                  borderRadius: 2,
+                  mt: 0.5,
+                  alignSelf: 'flex-start',
+                  px: 3,
+                  py: 1,
+                }}
+              >
+                {salvando ? 'Salvando...' : 'Salvar'}
+              </Button>
             </Box>
           </Box>
         ) : (
@@ -448,28 +435,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </Box>
       </Card>
 
-      {/* Botão Secundário no Rodapé da Tela */}
+      {/* Botão Salvar no Rodapé */}
       <Button
         fullWidth
         variant="contained"
         size="large"
         disabled={salvando}
-        onClick={() => handleSalvarNoBanco()}
+        onClick={() => handleSalvar()}
         startIcon={salvando ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
         sx={{
           py: 1.8,
           borderRadius: 3,
-          bgcolor: '#FFD700',
-          color: '#000000',
+          bgcolor: 'primary.main',
+          color: '#FFFFFF',
           fontWeight: 900,
           fontSize: '1rem',
-          boxShadow: '0 6px 20px rgba(255, 215, 0, 0.4)',
+          boxShadow: '0 6px 20px rgba(0, 102, 255, 0.35)',
           '&:hover': {
-            bgcolor: '#FFE44D',
+            bgcolor: 'primary.dark',
           },
         }}
       >
-        {salvando ? 'SINCRONIZANDO...' : '💾 SALVAR TODAS AS ALTERAÇÕES NO BANCO'}
+        {salvando ? 'Salvando...' : 'Salvar'}
       </Button>
 
       <Snackbar
