@@ -29,21 +29,32 @@ import { RatingScreen } from './screens/RatingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 
 export const App: React.FC = () => {
-  const [usuarioLogado, setUsuarioLogado] = useState<any | null>({
-    id: 'user-mock-1',
-    nome: 'Leonardo Santos',
-    email: 'leonardo@boraapp.com.br',
-    telefone: '(16) 99876-5432',
-    genero: 'Masculino',
-    raioBuscaKm: 5,
-    notaMedia: 4.95,
-    fotoUrl: null,
-    meuTime: {
-      nome: 'Bora Franca F.C.',
-      escudoUrl: null,
-      modalidade: 'Futebol de Campo (11x11)',
-      bairro: 'São José'
+  const [usuarioLogado, setUsuarioLogado] = useState<any | null>(() => {
+    const salvo = localStorage.getItem('@bora:user');
+    if (salvo) {
+      try {
+        return JSON.parse(salvo);
+      } catch (e) {
+        console.error('Erro ao ler usuario do localStorage:', e);
+      }
     }
+    return {
+      id: 'user-mock-1',
+      nome: 'Leonardo Santos',
+      email: 'leonardo@boraapp.com.br',
+      telefone: '(16) 99876-5432',
+      genero: 'Masculino',
+      raioBuscaKm: 5,
+      notaMedia: 4.95,
+      totalAvaliacoes: 18,
+      fotoUrl: null,
+      meuTime: {
+        nome: 'Bora Franca F.C.',
+        escudoUrl: null,
+        modalidade: 'Futebol de Campo (11x11)',
+        bairro: 'São José'
+      }
+    };
   });
 
   const [abaAtual, setAbaAtual] = useState<string>('explorar');

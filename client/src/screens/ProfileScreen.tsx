@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -10,9 +10,11 @@ import {
   IconButton,
   Alert,
   Snackbar,
+  CircularProgress,
   Divider
 } from '@mui/material';
-import { Camera, Star, ShieldCheck, User, Shield, Plus, Check } from 'lucide-react';
+import { Camera, Star, ShieldCheck, User, Shield, Check, Database, Save } from 'lucide-react';
+import { api } from '../services/api';
 
 export interface ProfileScreenProps {
   usuario: any;
@@ -33,15 +35,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Time / Equipe do Usuário
   const [possuiTime, setPossuiTime] = useState(Boolean(usuario?.meuTime));
-  const [nomeTime, setNomeTime] = useState(usuario?.meuTime?.nome || 'Franca F.C.');
+  const [nomeTime, setNomeTime] = useState(usuario?.meuTime?.nome || 'Bora Franca F.C.');
   const [escudoTime, setEscudoTime] = useState<string | null>(usuario?.meuTime?.escudoUrl || null);
-  const [modalidadeTime, setModalidadeTime] = useState(usuario?.meuTime?.modalidade || 'Futebol Society');
+  const [modalidadeTime, setModalidadeTime] = useState(usuario?.meuTime?.modalidade || 'Futebol de Campo (11x11)');
   const [bairroTime, setBairroTime] = useState(usuario?.meuTime?.bairro || 'São José');
 
-  const [editando, setEditando] = useState(false);
-  const [editandoTime, setEditandoTime] = useState(false);
+  const [modalidadesFavoritas, setModalidadesFavoritas] = useState<string[]>(
+    usuario?.modalidadesFavoritas
+      ? (typeof usuario.modalidadesFavoritas === 'string' ? usuario.modalidadesFavoritas.split(',') : usuario.modalidadesFavoritas)
+      : ['Futebol de Campo (11x11)', 'Futebol Society', 'Beach Tennis']
+  );
+
+  const [salvando, setSalvando] = useState(false);
   const [toastAberto, setToastAberto] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'error' | 'info'>('success');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileTeamInputRef = useRef<HTMLInputElement>(null);
@@ -59,9 +67,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     'Handebol'
   ];
 
-  const [modalidadesFavoritas, setModalidadesFavoritas] = useState<string[]>(
-    usuario?.modalidadesFavoritas?.split(',') || ['Futebol de Campo (11x11)', 'Futebol Society', 'Beach Tennis']
-  );
+  // Sincroniza sempre que a prop 'usuario' for atualizada externamente
+  useEffect(() => {
+    if (usuario) {
+      setNome(usuario.nome || '');
+      setEmail(usuario.email || '');
+      setTelefone(usuario.telefone || '(16) 99876-5432');
+      setGenero(usuario.genero || 'Masculino');
+      setBio(usuario.bio || 'Apaixonado por Futebol de campo e Society em Franca!');
+      setRaioBuscaKm(usuario.raioBuscaKm || 5);
+      setFotoUrl(usuario.fotoUrl || null);
+      if (usuario.meuTime) {
+        setPossuiTime(true);
+        setNomeTime(usuario.meuTime.nome || 'Bora Franca F.C.');
+        setEscudoTime(usuario.meuTime.escudoUrl || null);
+        setModalidadeTime(usuario.meuTime.modalidade || 'Futebol de Campo (11x11)');
+        setBairroTime(usuario.meuTime.bairro || 'São José');
+      }
+      if (usuario.modalidadesFavoritas) {
+        setModalidadesFavoritas(
+          typeof usuario.modalidadesFavoritas === 'string'
+            ? usuario.modalidadesFavoritas.split(',')
+            : usuario.modalidadesFavoritas
+        );
+      }
+    }
+  }, [usuario]);
 
   // Upload Local de Imagem via FileReader
   const handleUploadFoto = (e: React.ChangeEvent<HTMLInputElement>, isTeam = false) => {
@@ -69,13 +100,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
+        const base64Image = reader.result as string;
         if (isTeam) {
-          setEscudoTime(reader.result as string);
-          setToastMsg('Escudo do time atualizado com sucesso!');
+          setEscudoTime(base64Image);
+          setToastMsg('Escudo selecionado! Clique em Salvar para gravar no banco.');
         } else {
-          setFotoUrl(reader.result as string);
-          setToastMsg('Foto de perfil atualizada com sucesso!');
+          setFotoUrl(base64Image);
+          setToastMsg('Foto selecionada! Clique em Salvar para gravar no banco.');
         }
+        setToastSeverity('info');
         setToastAberto(true);
       };
       reader.readAsDataURL(file);
@@ -90,10 +123,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  const handleSalvar = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSalvarPerfil({
-      ...usuario,
+  // Sincronização direta com a API e Banco de Dados
+  const handleSalvarNoBanco = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setSalvando(true);
+
+    const dadosCompletos = {
+      id: usuario?.id || 'user-mock-1',
       nome,
       email,
       telefone,
@@ -110,15 +146,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             bairro: bairroTime,
           }
         : null,
-    });
-    setEditando(false);
-    setEditandoTime(false);
-    setToastMsg('Perfil atualizado com sucesso!');
-    setToastAberto(true);
+      notaMedia: usuario?.notaMedia || 4.95,
+      totalAvaliacoes: usuario?.totalAvaliacoes || 18,
+    };
+
+    try {
+      // 1. Persistência no Backend (API REST + PostgreSQL/PostGIS)
+      await api.put('/users/profile', dadosCompletos);
+
+      // 2. Persistência local e atualização de estado no App
+      onSalvarPerfil(dadosCompletos);
+      localStorage.setItem('@bora:user', JSON.stringify(dadosCompletos));
+
+      setToastSeverity('success');
+      setToastMsg('✅ Perfil sincronizado com sucesso no Banco de Dados!');
+      setToastAberto(true);
+    } catch (err: any) {
+      console.warn('Fallback local ativo:', err);
+      onSalvarPerfil(dadosCompletos);
+      localStorage.setItem('@bora:user', JSON.stringify(dadosCompletos));
+
+      setToastSeverity('success');
+      setToastMsg('✅ Perfil atualizado e salvo localmente com sucesso!');
+      setToastAberto(true);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
-    <Box sx={{ pb: 8 }}>
+    <Box sx={{ pb: 10 }}>
       <input
         type="file"
         ref={fileInputRef}
@@ -160,9 +217,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 bgcolor: 'secondary.main',
                 color: '#000',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                '&:hover': { bgcolor: 'secondary.light' },
+                '&:hover': { bgcolor: '#FFE44D' },
               }}
               onClick={() => fileInputRef.current?.click()}
+              title="Alterar Foto de Perfil"
             >
               <Camera size={16} />
             </IconButton>
@@ -172,7 +230,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {nome}
           </Typography>
 
-          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+          <Box display="flex" alignItems="center" gap={1} mt={0.5} flexWrap="wrap" justifyContent="center">
             <Chip
               icon={<Star size={14} fill="#000" color="#000" />}
               label={(usuario?.notaMedia || 4.95).toFixed(2) + ' • Atleta Confiável'}
@@ -187,6 +245,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </Box>
       </Card>
 
+      {/* Botão de Destaque: SALVAR NO BANCO */}
+      <Box sx={{ mb: 3 }}>
+        <Button
+          fullWidth
+          variant="contained"
+          size="large"
+          disabled={salvando}
+          onClick={() => handleSalvarNoBanco()}
+          startIcon={salvando ? <CircularProgress size={20} color="inherit" /> : <Database size={20} />}
+          sx={{
+            py: 1.8,
+            borderRadius: 3,
+            bgcolor: '#0066FF',
+            color: '#FFFFFF',
+            fontWeight: 900,
+            fontSize: '1rem',
+            boxShadow: '0 6px 20px rgba(0, 102, 255, 0.35)',
+            '&:hover': {
+              bgcolor: '#0052CC',
+            },
+          }}
+        >
+          {salvando ? 'SINCRONIZANDO COM O BANCO...' : '💾 SALVAR E SINCRONIZAR NO BANCO DE DADOS'}
+        </Button>
+      </Box>
+
       {/* Módulo: Meu Time / Equipe (Dono do Time & Amistosos) */}
       <Card sx={{ p: 2.5, mb: 3, border: '1.5px solid #0066FF', bgcolor: '#FFFFFF' }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -200,13 +284,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             size="small"
             variant="outlined"
             color="primary"
-            onClick={() => {
-              setPossuiTime(true);
-              setEditandoTime(!editandoTime);
-            }}
+            onClick={() => setPossuiTime(!possuiTime)}
             sx={{ fontWeight: 800, borderRadius: 2 }}
           >
-            {possuiTime ? (editandoTime ? 'Cancelar' : 'Gerenciar Time') : 'Cadastrar Time'}
+            {possuiTime ? 'Remover Time' : 'Cadastrar Time'}
           </Button>
         </Box>
 
@@ -226,28 +307,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 >
                   <Shield size={32} />
                 </Avatar>
-                {editandoTime && (
-                  <IconButton
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      bottom: -4,
-                      right: -4,
-                      bgcolor: '#0066FF',
-                      color: '#fff',
-                      p: 0.5,
-                      '&:hover': { bgcolor: '#0052CC' },
-                    }}
-                    onClick={() => fileTeamInputRef.current?.click()}
-                  >
-                    <Camera size={14} />
-                  </IconButton>
-                )}
+                <IconButton
+                  size="small"
+                  sx={{
+                    position: 'absolute',
+                    bottom: -4,
+                    right: -4,
+                    bgcolor: '#0066FF',
+                    color: '#fff',
+                    p: 0.5,
+                    '&:hover': { bgcolor: '#0052CC' },
+                  }}
+                  onClick={() => fileTeamInputRef.current?.click()}
+                  title="Alterar Escudo do Time"
+                >
+                  <Camera size={14} />
+                </IconButton>
               </Box>
 
               <Box>
                 <Typography variant="subtitle1" fontWeight={900} color="text.primary">
-                  {nomeTime}
+                  {nomeTime || 'Nome do Time'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}>
                   Capitão: {nome} • {modalidadeTime} ({bairroTime}, Franca/SP)
@@ -255,69 +335,47 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </Box>
             </Box>
 
-            {editandoTime && (
-              <Box display="flex" flexDirection="column" gap={1.5} mt={1}>
-                <TextField
-                  label="Nome da Equipe / Time"
-                  fullWidth
-                  size="small"
-                  value={nomeTime}
-                  onChange={(e) => setNomeTime(e.target.value)}
-                />
-                <TextField
-                  label="Modalidade Principal"
-                  fullWidth
-                  size="small"
-                  value={modalidadeTime}
-                  onChange={(e) => setModalidadeTime(e.target.value)}
-                />
-                <TextField
-                  label="Bairro Base em Franca/SP"
-                  fullWidth
-                  size="small"
-                  value={bairroTime}
-                  onChange={(e) => setBairroTime(e.target.value)}
-                />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSalvar}
-                  sx={{ fontWeight: 800, mt: 0.5 }}
-                >
-                  Salvar Dados do Time
-                </Button>
-              </Box>
-            )}
+            <Box display="flex" flexDirection="column" gap={1.5} mt={1}>
+              <TextField
+                label="Nome da Equipe / Time"
+                fullWidth
+                size="small"
+                value={nomeTime}
+                onChange={(e) => setNomeTime(e.target.value)}
+              />
+              <TextField
+                label="Modalidade Principal"
+                fullWidth
+                size="small"
+                value={modalidadeTime}
+                onChange={(e) => setModalidadeTime(e.target.value)}
+              />
+              <TextField
+                label="Bairro Base em Franca/SP"
+                fullWidth
+                size="small"
+                value={bairroTime}
+                onChange={(e) => setBairroTime(e.target.value)}
+              />
+            </Box>
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Você ainda não cadastrou uma equipe. Cadastre seu time para poder marcar <strong>Amistosos</strong> contra outras equipes de Franca!
+            Você ainda não cadastrou uma equipe. Clique no botão acima para cadastrar seu time e marcar <strong>Amistosos</strong> contra outras equipes de Franca!
           </Typography>
         )}
       </Card>
 
       {/* Formulário de Informações Pessoais */}
       <Card sx={{ p: 2.5, mb: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="subtitle1" fontWeight={800} color="text.primary">
-            Informações Pessoais
-          </Typography>
-          <Button
-            size="small"
-            variant={editando ? 'outlined' : 'contained'}
-            color="primary"
-            onClick={() => setEditando(!editando)}
-            sx={{ fontWeight: 700, borderRadius: 3 }}
-          >
-            {editando ? 'Cancelar' : 'Editar'}
-          </Button>
-        </Box>
+        <Typography variant="subtitle1" fontWeight={800} color="text.primary" mb={2}>
+          Informações Pessoais
+        </Typography>
 
-        <Box component="form" onSubmit={handleSalvar} display="flex" flexDirection="column" gap={2}>
+        <Box display="flex" flexDirection="column" gap={2}>
           <TextField
             label="Nome Completo"
             fullWidth
-            disabled={!editando}
             value={nome}
             onChange={(e) => setNome(e.target.value)}
           />
@@ -326,7 +384,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             label="Email"
             type="email"
             fullWidth
-            disabled={!editando}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -334,7 +391,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <TextField
             label="Telefone / WhatsApp"
             fullWidth
-            disabled={!editando}
             value={telefone}
             onChange={(e) => setTelefone(e.target.value)}
           />
@@ -344,32 +400,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             multiline
             rows={2}
             fullWidth
-            disabled={!editando}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
           />
-
-          {editando && (
-            <Button
-              type="submit"
-              variant="contained"
-              color="secondary"
-              size="large"
-              sx={{ mt: 1, py: 1.4, fontWeight: 800 }}
-            >
-              SALVAR ALTERAÇÕES
-            </Button>
-          )}
         </Box>
       </Card>
 
       {/* Modalidades Coletivas Favoritas */}
-      <Card sx={{ p: 2.5 }}>
+      <Card sx={{ p: 2.5, mb: 3 }}>
         <Typography variant="subtitle1" fontWeight={800} mb={1}>
           Modalidades Coletivas & Quadras
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" mb={2}>
-          Clique para selecionar os esportes que você pratica:
+          Selecione as modalidades que você pratica:
         </Typography>
 
         <Box display="flex" flexWrap="wrap" gap={1}>
@@ -397,12 +440,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </Box>
       </Card>
 
+      {/* Botão Secundário no Rodapé da Tela */}
+      <Button
+        fullWidth
+        variant="contained"
+        size="large"
+        disabled={salvando}
+        onClick={() => handleSalvarNoBanco()}
+        startIcon={salvando ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
+        sx={{
+          py: 1.8,
+          borderRadius: 3,
+          bgcolor: '#FFD700',
+          color: '#000000',
+          fontWeight: 900,
+          fontSize: '1rem',
+          boxShadow: '0 6px 20px rgba(255, 215, 0, 0.4)',
+          '&:hover': {
+            bgcolor: '#FFE44D',
+          },
+        }}
+      >
+        {salvando ? 'SINCRONIZANDO...' : '💾 SALVAR TODAS AS ALTERAÇÕES NO BANCO'}
+      </Button>
+
       <Snackbar
         open={toastAberto}
-        autoHideDuration={3000}
+        autoHideDuration={4000}
         onClose={() => setToastAberto(false)}
       >
-        <Alert severity="success" sx={{ width: '100%', fontWeight: 700 }}>
+        <Alert severity={toastSeverity} sx={{ width: '100%', fontWeight: 700 }}>
           {toastMsg}
         </Alert>
       </Snackbar>

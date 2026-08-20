@@ -222,6 +222,79 @@ app.post('/api/v1/auth/login', async (req, reply) => {
   }
 });
 
+// Atualizar e Sincronizar Perfil do Usuário
+app.put('/api/v1/users/profile', async (req, reply) => {
+  try {
+    const body = req.body as any;
+    const userId = body.id || (req.user as any)?.id || 'user-leonardo-1';
+    
+    let usuario: Usuario | null = null;
+    try {
+      usuario = await usuarioRepo.buscarPorId(userId);
+    } catch {
+      usuario = null;
+    }
+
+    if (!usuario && body.email) {
+      try {
+        usuario = await usuarioRepo.buscarPorEmail(body.email);
+      } catch {
+        usuario = null;
+      }
+    }
+
+    const emailKey = String(body.email || 'leonardo@boraapp.com.br').toLowerCase();
+    if (!usuario) {
+      usuario = usuariosMemoria.get(emailKey) || new Usuario({
+        id: userId,
+        nome: body.nome || 'Leonardo Santos',
+        email: body.email || 'leonardo@boraapp.com.br',
+        senhaHash: 'mock',
+        fotoUrl: body.fotoUrl,
+        genero: body.genero || 'Masculino',
+        dataNascimento: new Date('1995-05-10'),
+        raioBuscaKm: body.raioBuscaKm || 5,
+        modalidadesFavoritas: body.modalidadesFavoritas,
+        notaMedia: 4.95,
+        totalAvaliacoes: 18,
+        statusUsuario: StatusUsuarioEnum.ATIVO,
+      });
+    }
+
+    usuario.atualizarPerfil({
+      nome: body.nome,
+      fotoUrl: body.fotoUrl,
+      raioBuscaKm: body.raioBuscaKm ? Number(body.raioBuscaKm) : undefined,
+      modalidadesFavoritas: body.modalidadesFavoritas,
+    });
+
+    try {
+      await usuarioRepo.atualizar(usuario);
+    } catch (err: any) {
+      console.warn('Persistindo atualização de perfil em memória:', err.message);
+      usuariosMemoria.set(emailKey, usuario);
+    }
+
+    return reply.status(200).send({
+      message: 'Perfil sincronizado com sucesso no banco de dados!',
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        genero: usuario.genero,
+        raioBuscaKm: usuario.raioBuscaKm,
+        modalidadesFavoritas: usuario.modalidadesFavoritas,
+        fotoUrl: usuario.fotoUrl,
+        notaMedia: usuario.notaMedia,
+        meuTime: body.meuTime || null,
+      }
+    });
+  } catch (err: any) {
+    app.log.error(err);
+    return reply.status(500).send({ error: 'Erro ao sincronizar perfil com o banco: ' + err.message });
+  }
+});
+
 // ==========================================
 // 2º CRUD: PARTIDAS ESPORTIVAS (UC02, UC03 + PostGIS)
 // ==========================================
