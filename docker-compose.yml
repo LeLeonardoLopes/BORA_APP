@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: bora_app_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 524231
+      POSTGRES_DB: bora_app_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./server/src/infrastructure/database/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - bora_network
+
+volumes:
+  pgdata:
+
+networks:
+  bora_network:
+    driver: bridge
