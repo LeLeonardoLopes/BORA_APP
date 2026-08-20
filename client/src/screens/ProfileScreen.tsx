@@ -11,7 +11,8 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  Divider
+  Divider,
+  MenuItem
 } from '@mui/material';
 import { Camera, Star, ShieldCheck, User, Shield, Check, Database, Save } from 'lucide-react';
 import { api } from '../services/api';
@@ -344,12 +345,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onChange={(e) => setNomeTime(e.target.value)}
               />
               <TextField
+                select
                 label="Modalidade Principal"
                 fullWidth
                 size="small"
                 value={modalidadeTime}
                 onChange={(e) => setModalidadeTime(e.target.value)}
-              />
+              >
+                {modalidadesDisponiveis.map((mod) => (
+                  <MenuItem key={mod} value={mod}>
+                    {mod}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="Bairro Base em Franca/SP"
                 fullWidth
