@@ -336,6 +336,7 @@ app.get('/api/v1/matches', async (req, reply) => {
   const lat = Number(query.lat) || -20.5388;
   const lng = Number(query.lng) || -47.4005;
   const radius = Number(query.radius) || 5;
+  const endereco = query.endereco || query.bairro || query.q;
 
   try {
     const partidas = await consultarMapaUseCase.execute({
@@ -343,6 +344,7 @@ app.get('/api/v1/matches', async (req, reply) => {
       lng,
       raioKm: radius,
       esporte: query.sport,
+      endereco: typeof endereco === 'string' ? endereco : undefined,
       usuarioAutenticadoId: (req.user as any)?.id || 'anonymous',
     });
     return reply.status(200).send({ data: partidas });

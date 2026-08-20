@@ -18,9 +18,11 @@ import {
   Fab, 
   Snackbar, 
   Alert,
-  Avatar
+  Avatar,
+  TextField,
+  Button
 } from '@mui/material';
-import { Compass, LogOut, Star, Plus, User, ShieldCheck } from 'lucide-react';
+import { Compass, LogOut, Star, Plus, User } from 'lucide-react';
 import { boraTheme } from './theme/boraTheme';
 import { MatchCard } from './components/MatchCard';
 import { CreateMatchModal } from './components/CreateMatchModal';
@@ -78,9 +80,9 @@ export const App: React.FC = () => {
       tipoLocal: 'Publica',
       timeMandante: 'Bora Franca F.C.',
       timeVisitante: null,
-      taxaCampo: 140,
+      taxaCampo: 0,
       taxaJuiz: 80,
-      valorPorEquipe: 110,
+      valorPorEquipe: 40,
       isConfirmado: true
     },
     {
@@ -96,6 +98,8 @@ export const App: React.FC = () => {
       maxVagas: 14,
       formatoJogo: 'Avulso',
       tipoLocal: 'Publica',
+      taxaCampo: 0,
+      taxaJuiz: 0,
       isConfirmado: false
     },
     {
@@ -133,8 +137,6 @@ export const App: React.FC = () => {
     setPartidas((prev) => [
       {
         ...novaPartida,
-        lat: -20.5388,
-        lng: -47.4005,
         isConfirmado: true,
       },
       ...prev,

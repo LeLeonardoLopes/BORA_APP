@@ -5,6 +5,7 @@ export interface ConsultarMapaInput {
   lng: number;
   raioKm: number;
   esporte?: string;
+  endereco?: string;
   usuarioAutenticadoId: string;
 }
 
@@ -29,7 +30,7 @@ export class ConsultarMapaPartidasUseCase {
 
   public async execute(input: ConsultarMapaInput): Promise<PartidaMapaOutput[]> {
     const raioMetros = Math.min(Math.max(input.raioKm, 1), 5) * 1000;
-    const partidas = await this.partidaRepo.buscarPorRaio(input.lat, input.lng, raioMetros, input.esporte);
+    const partidas = await this.partidaRepo.buscarPorRaio(input.lat, input.lng, raioMetros, input.esporte, input.endereco);
 
     return partidas.map((partida) => {
       const isOrganizador = partida.organizadorId === input.usuarioAutenticadoId;

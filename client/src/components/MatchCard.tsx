@@ -156,22 +156,37 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   Custo por Equipe (50% cada):
                 </Typography>
                 <Typography variant="subtitle2" fontWeight={900} color="primary.main">
-                  {((taxaCampo || 0) + (taxaJuiz || 0)) > 0 
-                    ? `🤝 R$ ${(valorPorEquipe || (((taxaCampo || 0) + (taxaJuiz || 0)) / 2)).toFixed(2)}`
-                    : '🎉 Jogo Gratuito (Sem taxas)'}
+                  {((tipoLocal === 'Publica' ? 0 : (taxaCampo || 0)) + (taxaJuiz || 0)) > 0 
+                    ? `🤝 R$ ${(valorPorEquipe || (((tipoLocal === 'Publica' ? 0 : (taxaCampo || 0)) + (taxaJuiz || 0)) / 2)).toFixed(2)}`
+                    : '🎉 Amistoso Gratuito (Sem taxas)'}
                 </Typography>
               </Box>
 
-              {((taxaCampo || 0) + (taxaJuiz || 0)) > 0 && (
-                <Box textAlign="right">
-                  <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
-                    🏟️ Campo: R$ {(taxaCampo || 0).toFixed(2)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
-                    ⚖️ Juiz: R$ {(taxaJuiz || 0).toFixed(2)}
-                  </Typography>
-                </Box>
-              )}
+              <Box textAlign="right">
+                {tipoLocal === 'Publica' ? (
+                  <>
+                    <Typography variant="caption" color="success.main" fontWeight={800} display="block">
+                      🏟️ Campo Público (R$ 0,00)
+                    </Typography>
+                    {(taxaJuiz || 0) > 0 && (
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                        ⚖️ Juiz: R$ {(taxaJuiz || 0).toFixed(2)}
+                      </Typography>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                      🏟️ Campo Privado: R$ {(taxaCampo || 0).toFixed(2)}
+                    </Typography>
+                    {(taxaJuiz || 0) > 0 && (
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                        ⚖️ Juiz: R$ {(taxaJuiz || 0).toFixed(2)}
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </Box>
             </Box>
           </Box>
         ) : null}
@@ -185,9 +200,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             />
             {!isAmistoso && (
               <Chip
-                label={tipoLocal === 'Publica' ? 'Quadra Pública' : 'Quadra Privada'}
+                label={tipoLocal === 'Publica' ? '🌳 Quadra Pública (Grátis)' : (taxaCampo && taxaCampo > 0 ? `🏟️ R$ ${(taxaCampo / maxVagas).toFixed(2)}/vaga` : '🏟️ Quadra Privada')}
                 size="small"
-                sx={{ bgcolor: '#EFF6FF', color: 'primary.main', fontWeight: 700 }}
+                sx={{ 
+                  bgcolor: tipoLocal === 'Publica' ? '#DCFCE7' : '#EFF6FF', 
+                  color: tipoLocal === 'Publica' ? '#166534' : 'primary.main', 
+                  fontWeight: 800 
+                }}
               />
             )}
           </Box>

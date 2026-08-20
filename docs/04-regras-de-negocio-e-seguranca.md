@@ -1,4 +1,4 @@
-﻿# 04 — Regras de Negócio e Segurança — Bora! App
+# 04 — Regras de Negócio e Segurança — Bora! App
 
 ## 1. Especificação das Regras de Negócio (RN)
 
@@ -26,6 +26,22 @@
   // Trecho de validação no CancelarPartidaUseCase
   if (partida.status === StatusPartida.LOTADA) {
     throw new BusinessRuleError('RN03', 'Partidas lotadas não podem ser canceladas diretamente. Solicite suporte.');
+  }
+  ```
+
+### RN04 — Precificação de Espaços Públicos vs Privados & Taxa de Arbitragem
+* **Definição:**
+  1. **Locais Públicos (Campos/Quadras):** São 100% gratuitos quanto ao uso do espaço (`taxaCampo = 0`). A regra de cobrança de aluguel/locação do campo não se aplica a espaços públicos, tanto para partidas avulsas quanto para amistosos entre times.
+  2. **Locais Privados/Particulares:** Aplica-se a regra de cobrança/aluguel de quadra (`taxaCampo > 0`), cujo rateio pode ser feito entre as equipes (em amistosos) ou dividido entre os atletas por vaga (em partidas avulsas).
+  3. **Taxa de Juiz / Arbitragem:** Aplica-se **exclusivamente a Amistosos** (`formatoJogo === 'Amistoso_Times'`). Em partidas abertas/avulsas não há cobrança de taxa de juiz (`taxaJuiz = 0`). Em amistosos públicos, pode haver taxa de juiz rateada em 50% para cada equipe.
+* **Implementação Técnica:**
+  ```typescript
+  // Trecho de validação na Entidade Partida
+  if (props.tipoLocal === 'Publica' && (props.taxaCampo || 0) > 0) {
+    throw new Error('Regra RN04: Campos e quadras públicas são 100% gratuitos. A taxa de campo não se aplica.');
+  }
+  if (props.formatoJogo === 'Avulso' && (props.taxaJuiz || 0) > 0) {
+    throw new Error('Regra RN04: A taxa de arbitragem/juiz aplica-se exclusivamente a amistosos entre equipes.');
   }
   ```
 

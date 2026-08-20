@@ -21,8 +21,8 @@ export class PgPartidaRepository implements IPartidaRepository {
     return this.mapToEntity(res.rows[0]);
   }
 
-  public async buscarPorRaio(lat: number, lng: number, raioMetros: number, esporte?: string): Promise<Partida[]> {
-    let query = 'SELECT * FROM partida WHERE status_partida =  AND data_hora > NOW() AND ST_DWithin(geom, ST_SetSRID(ST_MakePoint(, ), 4326)::geography, )';
+  public async buscarPorRaio(lat: number, lng: number, raioMetros: number, esporte?: string, endereco?: string): Promise<Partida[]> {
+    let query = 'SELECT * FROM partida WHERE status_partida = $1 AND data_hora > NOW() AND ST_DWithin(geom, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, $4)';
     const params: any[] = ['Publicada', lat, lng, raioMetros];
 
     if (esporte) {
@@ -30,7 +30,13 @@ export class PgPartidaRepository implements IPartidaRepository {
       query += ' AND esporte ILIKE $' + String(params.length);
     }
 
-    query += ' ORDER BY ST_Distance(geom, ST_SetSRID(ST_MakePoint(, ), 4326)::geography) ASC;';
+    if (endereco && endereco.trim()) {
+      params.push(`%${endereco.trim()}%`);
+      const pIdx = params.length;
+      query += ` AND (bairro ILIKE $${pIdx} OR endereco_completo ILIKE $${pIdx} OR cidade ILIKE $${pIdx})`;
+    }
+
+    query += ' ORDER BY ST_Distance(geom, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography) ASC;';
 
     const res = await db.query(query, params);
     return res.rows.map(this.mapToEntity);

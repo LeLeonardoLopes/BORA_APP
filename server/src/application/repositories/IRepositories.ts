@@ -12,7 +12,7 @@ export interface IUsuarioRepository {
 export interface IPartidaRepository {
   criar(partida: Partida): Promise<Partida>;
   buscarPorId(id: string): Promise<Partida | null>;
-  buscarPorRaio(lat: number, lng: number, raioMetros: number, esporte?: string): Promise<Partida[]>;
+  buscarPorRaio(lat: number, lng: number, raioMetros: number, esporte?: string, endereco?: string): Promise<Partida[]>;
   atualizar(partida: Partida): Promise<void>;
 }
 

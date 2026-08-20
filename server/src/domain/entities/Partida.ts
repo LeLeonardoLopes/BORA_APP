@@ -16,6 +16,8 @@ export interface PartidaProps {
   lat: number;
   lng: number;
   statusPartida: StatusPartidaEnum;
+  formatoJogo?: 'Avulso' | 'Amistoso_Times';
+  tipoLocal?: 'Publica' | 'Privada';
   taxaCampo?: number;
   taxaJuiz?: number;
   criadoEm?: Date;
@@ -37,6 +39,16 @@ export class Partida {
     if (props.vagasPreenchidas > props.maxVagas) {
       throw new Error('Número de vagas preenchidas não pode exceder o máximo.');
     }
+
+    // Regra RN04: Locais públicos são gratuitos quanto ao uso do espaço
+    if (props.tipoLocal === 'Publica' && (props.taxaCampo || 0) > 0) {
+      throw new Error('Regra RN04: Campos e quadras públicas são 100% gratuitos. A taxa de campo não se aplica.');
+    }
+
+    // Regra RN04: A taxa de juiz/arbitragem aplica-se exclusivamente a amistosos entre equipes
+    if (props.formatoJogo === 'Avulso' && (props.taxaJuiz || 0) > 0) {
+      throw new Error('Regra RN04: A taxa de arbitragem/juiz aplica-se exclusivamente a amistosos entre equipes.');
+    }
   }
 
   public get id(): string { return this.props.id; }
@@ -54,9 +66,12 @@ export class Partida {
   public get lat(): number { return this.props.lat; }
   public get lng(): number { return this.props.lng; }
   public get statusPartida(): StatusPartidaEnum { return this.props.statusPartida; }
-  public get taxaCampo(): number { return this.props.taxaCampo || 0; }
-  public get taxaJuiz(): number { return this.props.taxaJuiz || 0; }
+  public get formatoJogo(): 'Avulso' | 'Amistoso_Times' { return this.props.formatoJogo || 'Avulso'; }
+  public get tipoLocal(): 'Publica' | 'Privada' { return this.props.tipoLocal || 'Publica'; }
+  public get taxaCampo(): number { return this.props.tipoLocal === 'Publica' ? 0 : (this.props.taxaCampo || 0); }
+  public get taxaJuiz(): number { return this.props.formatoJogo === 'Amistoso_Times' ? (this.props.taxaJuiz || 0) : 0; }
   public get valorPorEquipe(): number { return (this.taxaCampo + this.taxaJuiz) / 2; }
+  public get valorPorAtleta(): number { return this.tipoLocal === 'Privada' && this.formatoJogo === 'Avulso' && this.maxVagas > 0 ? this.taxaCampo / this.maxVagas : 0; }
 
   // Regra RN03: Bloqueio de cancelamento direto quando a partida estiver lotada
   public cancelar(solicitanteId: string): void {
