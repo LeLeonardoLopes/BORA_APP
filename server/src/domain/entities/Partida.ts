@@ -6,6 +6,7 @@ export interface PartidaProps {
   esporte: string;
   descricao?: string | null;
   dataHora: Date;
+  duracaoMinutos?: number;
   maxVagas: number;
   vagasPreenchidas: number;
   filtroGenero?: string | null;
@@ -56,6 +57,7 @@ export class Partida {
   public get esporte(): string { return this.props.esporte; }
   public get descricao(): string | null | undefined { return this.props.descricao; }
   public get dataHora(): Date { return this.props.dataHora; }
+  public get duracaoMinutos(): number { return this.props.duracaoMinutos ?? 90; }
   public get maxVagas(): number { return this.props.maxVagas; }
   public get vagasPreenchidas(): number { return this.props.vagasPreenchidas; }
   public get filtroGenero(): string | null | undefined { return this.props.filtroGenero; }
@@ -92,5 +94,15 @@ export class Partida {
     if (this.props.vagasPreenchidas === this.props.maxVagas) {
       this.props.statusPartida = StatusPartidaEnum.LOTADA;
     }
+  }
+
+  public finalizar(solicitanteId?: string): void {
+    if (solicitanteId && solicitanteId !== this.props.organizadorId) {
+      throw new Error('Apenas o organizador pode finalizar a partida manualmente.');
+    }
+    if (this.props.statusPartida === StatusPartidaEnum.CANCELADA) {
+      throw new Error('Uma partida cancelada não pode ser finalizada.');
+    }
+    this.props.statusPartida = StatusPartidaEnum.FINALIZADA;
   }
 }

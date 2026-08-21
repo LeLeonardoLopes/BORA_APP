@@ -79,18 +79,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSalvarPerfil,
 }) => {
   // Informações Pessoais
-  const [nome, setNome] = useState(usuario?.nome || 'Leonardo Lopes');
-  const [email, setEmail] = useState(usuario?.email || 'leonardo.lopes@boraapp.com.br');
-  const [telefone, setTelefone] = useState(usuario?.telefone || '(16) 99876-5432');
-  const [genero, setGenero] = useState(usuario?.genero || 'Masculino');
-  const [bairroResidencia, setBairroResidencia] = useState(usuario?.bairroResidencia || 'São José');
-  const [instagram, setInstagram] = useState(usuario?.instagram || '@leolopes_esporte');
-  const [bio, setBio] = useState(usuario?.bio || 'Praticante assíduo em Franca/SP. Foco em jogo limpo, pontualidade e integração esportiva.');
+  const [nome, setNome] = useState(usuario?.nome || '');
+  const [email, setEmail] = useState(usuario?.email || '');
+  const [telefone, setTelefone] = useState(usuario?.telefone || '');
+  const [genero, setGenero] = useState(usuario?.genero || 'Não informado');
+  const [bairroResidencia, setBairroResidencia] = useState(usuario?.bairroResidencia || '');
+  const [instagram, setInstagram] = useState(usuario?.instagram || '');
+  const [bio, setBio] = useState(usuario?.bio || '');
   const [raioBuscaKm, setRaioBuscaKm] = useState(usuario?.raioBuscaKm || 5);
   const [fotoUrl, setFotoUrl] = useState<string | null>(usuario?.fotoUrl || null);
 
   // Ficha Técnica do Atleta
-  const [posicaoPreferida, setPosicaoPreferida] = useState(usuario?.posicaoPreferida || 'Meio-Campo / Volante');
+  const [posicaoPreferida, setPosicaoPreferida] = useState(usuario?.posicaoPreferida || 'Jogador Polivalente (Joga em qualquer vaga)');
   const [ladoDominante, setLadoDominante] = useState(usuario?.ladoDominante || 'Destro');
   const [nivelHabilidade, setNivelHabilidade] = useState(usuario?.nivelHabilidade || 'Intermediário');
   
@@ -98,28 +98,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [horariosFavoritos, setHorariosFavoritos] = useState<string[]>(
     usuario?.horariosFavoritos 
       ? (Array.isArray(usuario.horariosFavoritos) ? usuario.horariosFavoritos : usuario.horariosFavoritos.split(','))
-      : ['Noites de Semana (19h-22h)', 'Sábados pela Manhã', 'Domingos pela Manhã']
+      : []
   );
 
   // Time / Equipe do Usuário (Amistosos)
   const [possuiTime, setPossuiTime] = useState(Boolean(usuario?.meuTime));
-  const [nomeTime, setNomeTime] = useState(usuario?.meuTime?.nome || 'Bora Franca F.C.');
+  const [nomeTime, setNomeTime] = useState(usuario?.meuTime?.nome || '');
   const [escudoTime, setEscudoTime] = useState<string | null>(usuario?.meuTime?.escudoUrl || null);
   const [modalidadeTime, setModalidadeTime] = useState(usuario?.meuTime?.modalidade || 'Futebol Society');
-  const [bairroTime, setBairroTime] = useState(usuario?.meuTime?.bairro || 'São José');
+  const [bairroTime, setBairroTime] = useState(usuario?.meuTime?.bairro || '');
 
   // Modalidades Praticadas
   const [modalidadesFavoritas, setModalidadesFavoritas] = useState<string[]>(
     usuario?.modalidadesFavoritas
       ? (typeof usuario.modalidadesFavoritas === 'string' ? usuario.modalidadesFavoritas.split(',') : usuario.modalidadesFavoritas)
-      : ['Futebol Society', 'Futebol de Campo (11x11)', 'Basquete']
+      : []
   );
 
   // Estatísticas do Atleta
-  const partidasCriadas = usuario?.partidasCriadasCount || 12;
-  const jogosParticipados = usuario?.jogosParticipadosCount || 34;
-  const notaMedia = usuario?.notaMedia || 4.95;
-  const totalAvaliacoes = usuario?.totalAvaliacoes || 28;
+  const partidasCriadas = usuario?.partidasCriadasCount || 0;
+  const jogosParticipados = usuario?.jogosParticipadosCount || 0;
+  const notaMedia = usuario?.notaMedia || 5.0;
+  const totalAvaliacoes = usuario?.totalAvaliacoes || 0;
 
   const [salvando, setSalvando] = useState(false);
   const [toastAberto, setToastAberto] = useState(false);
@@ -134,23 +134,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (usuario) {
       setNome(usuario.nome || '');
       setEmail(usuario.email || '');
-      setTelefone(usuario.telefone || '(16) 99876-5432');
-      setGenero(usuario.genero || 'Masculino');
-      setBairroResidencia(usuario.bairroResidencia || 'São José');
-      setInstagram(usuario.instagram || '@leolopes_esporte');
-      setBio(usuario.bio || 'Praticante assíduo em Franca/SP. Foco em jogo limpo e integração.');
+      setTelefone(usuario.telefone || '');
+      setGenero(usuario.genero || 'Não informado');
+      setBairroResidencia(usuario.bairroResidencia || '');
+      setInstagram(usuario.instagram || '');
+      setBio(usuario.bio || '');
       setRaioBuscaKm(usuario.raioBuscaKm || 5);
       setFotoUrl(usuario.fotoUrl || null);
-      setPosicaoPreferida(usuario.posicaoPreferida || 'Meio-Campo / Volante');
+      setPosicaoPreferida(usuario.posicaoPreferida || 'Jogador Polivalente (Joga em qualquer vaga)');
       setLadoDominante(usuario.ladoDominante || 'Destro');
       setNivelHabilidade(usuario.nivelHabilidade || 'Intermediário');
 
       if (usuario.meuTime) {
         setPossuiTime(true);
-        setNomeTime(usuario.meuTime.nome || 'Bora Franca F.C.');
+        setNomeTime(usuario.meuTime.nome || '');
         setEscudoTime(usuario.meuTime.escudoUrl || null);
         setModalidadeTime(usuario.meuTime.modalidade || 'Futebol Society');
-        setBairroTime(usuario.meuTime.bairro || 'São José');
+        setBairroTime(usuario.meuTime.bairro || '');
+      } else {
+        setPossuiTime(false);
+        setNomeTime('');
+        setEscudoTime(null);
+        setBairroTime('');
       }
 
       if (usuario.modalidadesFavoritas) {
@@ -159,6 +164,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             ? usuario.modalidadesFavoritas.split(',')
             : usuario.modalidadesFavoritas
         );
+      } else {
+        setModalidadesFavoritas([]);
       }
 
       if (usuario.horariosFavoritos) {
@@ -167,6 +174,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             ? usuario.horariosFavoritos.split(',')
             : usuario.horariosFavoritos
         );
+      } else {
+        setHorariosFavoritos([]);
       }
     }
   }, [usuario]);

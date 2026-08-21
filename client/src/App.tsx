@@ -50,6 +50,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBoraTheme } from './theme/boraTheme';
 import { MatchCard } from './components/MatchCard';
 import { CreateMatchModal } from './components/CreateMatchModal';
@@ -74,7 +75,16 @@ export const MODALIDADES_FILTRO = [
   'Handebol'
 ];
 
+interface NotificacaoRealtime {
+  tipo: 'success' | 'info' | 'warning' | 'error';
+  texto: string;
+  acaoTexto?: string;
+  onAcao?: () => void;
+}
+
 export const App: React.FC = () => {
+  const queryClient = useQueryClient();
+
   // Estado do Tema (Claro / Escuro com persistência)
   const [tema, setTema] = useState<'light' | 'dark'>(() => {
     const salvo = localStorage.getItem('@bora:theme');
@@ -91,41 +101,33 @@ export const App: React.FC = () => {
   const currentTheme = useMemo(() => getBoraTheme(tema), [tema]);
 
   const [usuarioLogado, setUsuarioLogado] = useState<any | null>(() => {
+    const token = localStorage.getItem('@bora:token');
     const salvo = localStorage.getItem('@bora:user');
-    if (salvo) {
+    if (token && salvo) {
       try {
         return JSON.parse(salvo);
       } catch (e) {
         console.error('Erro ao ler usuario do localStorage:', e);
+        localStorage.removeItem('@bora:token');
+        localStorage.removeItem('@bora:user');
       }
     }
-    return {
-      id: '11111111-1111-1111-1111-111111111101',
-      nome: 'Leonardo Lopes',
-      email: 'leonardo.lopes@boraapp.com.br',
-      telefone: '(16) 99876-5432',
-      genero: 'Masculino',
-      bairroResidencia: 'São José',
-      raioBuscaKm: 15,
-      notaMedia: 4.95,
-      totalAvaliacoes: 28,
-      fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      meuTime: {
-        nome: 'Bora Franca F.C.',
-        escudoUrl: null,
-        modalidade: 'Futebol Society',
-        bairro: 'São José'
-      }
-    };
+    return null;
   });
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('@bora:token');
+    localStorage.removeItem('@bora:user');
+    queryClient.clear();
+    setUsuarioLogado(null);
+  }, [queryClient]);
 
   const [abaAtual, setAbaAtual] = useState<string>('explorar');
   const [modoVisualizacao, setModoVisualizacao] = useState<'lista' | 'mapa'>('lista');
   const [raioKm, setRaioKm] = useState<number>(15); // Raio padrão da cidade inteira de Franca/SP (15 a 25 km)
   const [modalCriarAberto, setModalCriarAberto] = useState(false);
   const [toastMensagem, setToastMensagem] = useState<string | null>(null);
-  const [carregandoPartidas, setCarregandoPartidas] = useState(false);
-  const [partidas, setPartidas] = useState<any[]>([]);
+  const [notificacaoRealtime, setNotificacaoRealtime] = useState<NotificacaoRealtime | null>(null);
   const [totalSolicitacoesPendentes, setTotalSolicitacoesPendentes] = useState<number>(3);
 
   // ESTADOS DE FILTRO
@@ -145,13 +147,17 @@ export const App: React.FC = () => {
     }
   };
 
-  // Carregar partidas reais do Backend (PostgreSQL)
-  const carregarPartidasDoBanco = useCallback(async (raio: number) => {
-    setCarregandoPartidas(true);
-    try {
-      const response = await api.get(`/matches?lat=-20.5388&lng=-47.4005&radius=${raio}`);
+  // TanStack Query: Carregar partidas reais do Backend (PostgreSQL)
+  const {
+    data: partidas = [],
+    isLoading: carregandoPartidas,
+    refetch: carregarPartidasDoBanco,
+  } = useQuery<any[]>({
+    queryKey: ['matches', raioKm],
+    queryFn: async () => {
+      const response = await api.get(`/matches?lat=-20.5388&lng=-47.4005&radius=${raioKm}`);
       if (response.data && Array.isArray(response.data.data)) {
-        const formatadas = response.data.data.map((p: any) => {
+        return response.data.data.map((p: any) => {
           const isAmistoso = p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
           const isPrivada = p.descricao?.toLowerCase().includes('arena') || p.descricao?.toLowerCase().includes('privada') || p.descricao?.toLowerCase().includes('sintética') || p.descricao?.toLowerCase().includes('sunset');
           return {
@@ -159,6 +165,10 @@ export const App: React.FC = () => {
             esporte: p.esporte,
             descricao: p.descricao,
             dataHora: p.dataHora,
+            duracaoMinutos: p.duracaoMinutos || 90,
+            statusPartida: p.statusPartida || 'Publicada',
+            organizadorId: p.organizadorId || p.organizador_id,
+            isOrganizador: p.isOrganizador || (p.organizadorId === usuarioLogado?.id),
             bairro: p.bairro,
             enderecoCompleto: p.enderecoCompleto || `${p.bairro}, Franca/SP`,
             lat: Number(p.lat),
@@ -175,21 +185,91 @@ export const App: React.FC = () => {
             isConfirmado: p.isOrganizador || false,
           };
         });
-        setPartidas(formatadas);
       }
-    } catch (err: any) {
-      console.warn('Erro ao buscar partidas da API:', err.message);
-    } finally {
-      setCarregandoPartidas(false);
-    }
-  }, []);
+      return [];
+    },
+    enabled: Boolean(usuarioLogado),
+    staleTime: 1000 * 20,
+  });
 
-  // Efeito para carregar na montagem e sempre que o raio for alterado
+  // Conexão WebSocket Real-Time Global (Fase 3 Notificações)
   useEffect(() => {
-    if (usuarioLogado) {
-      carregarPartidasDoBanco(raioKm);
-    }
-  }, [carregarPartidasDoBanco, raioKm, usuarioLogado]);
+    if (!usuarioLogado?.id) return;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimer: any = null;
+
+    const connectWS = () => {
+      try {
+        const wsUrl = `ws://localhost:3333/ws?usuarioId=${usuarioLogado.id}`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            const { event: evt, payload } = data;
+
+            if (evt === 'request_decision') {
+              const status = payload?.status;
+              if (status === 'Aprovada') {
+                setNotificacaoRealtime({
+                  tipo: 'success',
+                  texto: '🎉 Sua solicitação para a partida foi APROVADA! Local e mapa liberados.',
+                });
+              } else if (status === 'Rejeitada') {
+                setNotificacaoRealtime({
+                  tipo: 'warning',
+                  texto: 'ℹ️ Sua solicitação de vaga foi recusada pelo organizador.',
+                });
+              }
+              queryClient.invalidateQueries({ queryKey: ['matches'] });
+            } else if (evt === 'request_received' || evt === 'solicitacao') {
+              setTotalSolicitacoesPendentes((prev) => prev + 1);
+              setNotificacaoRealtime({
+                tipo: 'info',
+                texto: '🔔 Nova solicitação recebida para sua partida!',
+                acaoTexto: 'Ver Gestão',
+                onAcao: () => setAbaAtual('minhas_partidas'),
+              });
+              queryClient.invalidateQueries({ queryKey: ['matches'] });
+            } else if (evt === 'match_finished') {
+              setNotificacaoRealtime({
+                tipo: 'info',
+                texto: '🏁 Partida finalizada! Avalie o organizador e seus colegas para manter seu Fair Play.',
+                acaoTexto: 'Avaliar Agora',
+                onAcao: () => setAbaAtual('avaliar'),
+              });
+              queryClient.invalidateQueries({ queryKey: ['matches'] });
+            } else if (evt === 'match_slot_filled') {
+              queryClient.invalidateQueries({ queryKey: ['matches'] });
+            }
+          } catch {
+            // ignore non-json
+          }
+        };
+
+        ws.onclose = () => {
+          reconnectTimer = setTimeout(connectWS, 4000);
+        };
+
+        ws.onerror = () => {
+          if (ws) ws.close();
+        };
+      } catch (e) {
+        console.warn('Erro ao conectar WebSocket global:', e);
+      }
+    };
+
+    connectWS();
+
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, [usuarioLogado?.id, queryClient]);
 
   // FILTRAGEM DINÂMICA EM MEMÓRIA
   const partidasFiltradas = useMemo(() => {
@@ -239,7 +319,13 @@ export const App: React.FC = () => {
     return (
       <ThemeProvider theme={currentTheme}>
         <CssBaseline />
-        <AuthScreen onLoginSuccess={(_, user) => setUsuarioLogado(user)} />
+        <AuthScreen
+          onLoginSuccess={(token, user) => {
+            localStorage.setItem('@bora:token', token);
+            localStorage.setItem('@bora:user', JSON.stringify(user));
+            setUsuarioLogado(user);
+          }}
+        />
       </ThemeProvider>
     );
   }
@@ -258,7 +344,7 @@ export const App: React.FC = () => {
       console.warn('Erro ao sincronizar nova partida na API:', err);
     }
 
-    setPartidas((prev) => [partidaFormatada, ...prev]);
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
 
     setToastMensagem(
       novaPartida.formatoJogo === 'Amistoso_Times' 
@@ -281,12 +367,17 @@ export const App: React.FC = () => {
       setToastMensagem('Você precisa cadastrar seu time na aba Meu Perfil antes de marcar um amistoso!');
       return;
     }
-    setPartidas((prev) =>
+    queryClient.setQueryData<any[]>(['matches', raioKm], (prev = []) =>
       prev.map((p) =>
         p.id === id ? { ...p, timeVisitante: usuarioLogado.meuTime.nome, vagasPreenchidas: 2 } : p
       )
     );
     setToastMensagem('Desafio de Amistoso enviado com o time ' + usuarioLogado.meuTime.nome + '!');
+  };
+
+  const handleFinalizarPartida = (id: string) => {
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
+    setToastMensagem('🏁 Partida finalizada com sucesso! O mural está em modo somente leitura.');
   };
 
   const isDark = tema === 'dark';
@@ -347,7 +438,7 @@ export const App: React.FC = () => {
                 <User size={20} />
               </Avatar>
               
-              <IconButton sx={{ color: '#fff' }} onClick={() => setUsuarioLogado(null)}>
+              <IconButton sx={{ color: '#fff' }} onClick={handleLogout} title="Sair do Bora! App">
                 <LogOut size={18} />
               </IconButton>
             </Box>
@@ -448,7 +539,7 @@ export const App: React.FC = () => {
                         </Typography>
                         <IconButton 
                           size="small" 
-                          onClick={() => carregarPartidasDoBanco(raioKm)}
+                          onClick={() => carregarPartidasDoBanco()}
                           disabled={carregandoPartidas}
                           sx={{ color: 'primary.main', p: 0.5 }}
                         >
@@ -714,8 +805,10 @@ export const App: React.FC = () => {
                       <MatchCard
                         key={match.id}
                         {...match}
+                        usuarioLogado={usuarioLogado}
                         onSolicitarVaga={handleSolicitarVaga}
                         onMarcarAmistoso={handleMarcarAmistoso}
+                        onFinalizarPartida={handleFinalizarPartida}
                       />
                     ))
                   )}
@@ -753,7 +846,7 @@ export const App: React.FC = () => {
             <MyMatchesScreen
               usuarioLogado={usuarioLogado}
               onPartidaCancelada={(partidaId) => {
-                setPartidas((prev) => prev.filter((p) => p.id !== partidaId));
+                queryClient.invalidateQueries({ queryKey: ['matches'] });
               }}
             />
           )}
@@ -801,6 +894,45 @@ export const App: React.FC = () => {
           </BottomNavigation>
         </Paper>
 
+        {/* Notificações em Tempo Real (WebSocket) */}
+        <Snackbar 
+          open={Boolean(notificacaoRealtime)} 
+          autoHideDuration={6000} 
+          onClose={() => setNotificacaoRealtime(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          sx={{ mt: 7 }}
+        >
+          {notificacaoRealtime ? (
+            <Alert 
+              severity={notificacaoRealtime.tipo} 
+              sx={{ 
+                width: '100%', 
+                fontWeight: 700, 
+                boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+                alignItems: 'center'
+              }}
+              action={
+                notificacaoRealtime.acaoTexto ? (
+                  <Button 
+                    color="inherit" 
+                    size="small" 
+                    onClick={() => {
+                      if (notificacaoRealtime.onAcao) notificacaoRealtime.onAcao();
+                      setNotificacaoRealtime(null);
+                    }}
+                    sx={{ fontWeight: 900, textTransform: 'none' }}
+                  >
+                    {notificacaoRealtime.acaoTexto}
+                  </Button>
+                ) : undefined
+              }
+            >
+              {notificacaoRealtime.texto}
+            </Alert>
+          ) : undefined}
+        </Snackbar>
+
+        {/* Toast padrão de ações locais */}
         <Snackbar 
           open={Boolean(toastMensagem)} 
           autoHideDuration={3500} 

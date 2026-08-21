@@ -73,7 +73,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
       if (resMatches.data && Array.isArray(resMatches.data.data)) {
         // Partidas estritamente criadas/organizadas pelo usuário logado
         const criadasPorMim = resMatches.data.data.filter(
-          (p: any) => p.isOrganizador || p.organizadorId === usuarioLogado?.id || p.organizador_id === usuarioLogado?.id || p.organizadorId === '11111111-1111-1111-1111-111111111101'
+          (p: any) => (usuarioLogado?.id && (p.organizadorId === usuarioLogado.id || p.organizador_id === usuarioLogado.id)) || p.isOrganizador
         );
         setMinhasPartidas(criadasPorMim);
       }

@@ -9,7 +9,13 @@ import {
   Divider,
   Alert,
   IconButton,
-  Tooltip
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  CircularProgress
 } from '@mui/material';
 import { 
   MapPin, 
@@ -19,21 +25,32 @@ import {
   ShieldAlert, 
   Shield, 
   Users, 
-  Share2 
+  Share2,
+  MessageSquare,
+  Clock,
+  Flag,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { obterClimaFranca, PrevisaoClima } from '../services/weatherService';
+import { MatchChatModal } from './MatchChatModal';
+import { api } from '../services/api';
 
 export interface MatchCardProps {
   id: string;
   esporte: string;
   descricao?: string;
   dataHora: string;
+  duracaoMinutos?: number;
   bairro: string;
   enderecoCompleto?: string;
   lat: number;
   lng: number;
   vagasPreenchidas: number;
   maxVagas: number;
+  statusPartida?: 'Publicada' | 'Lotada' | 'Em_Andamento' | 'Finalizada' | 'Cancelada';
+  organizadorId?: string;
+  isOrganizador?: boolean;
   isConfirmado?: boolean;
   formatoJogo?: 'Avulso' | 'Amistoso_Times';
   tipoLocal?: 'Publica' | 'Privada';
@@ -42,8 +59,14 @@ export interface MatchCardProps {
   taxaCampo?: number;
   taxaJuiz?: number;
   valorPorEquipe?: number;
+  usuarioLogado?: {
+    id: string;
+    nome: string;
+    fotoUrl?: string | null;
+  };
   onSolicitarVaga?: (id: string) => void;
   onMarcarAmistoso?: (id: string) => void;
+  onFinalizarPartida?: (id: string) => void;
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -51,12 +74,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   esporte,
   descricao,
   dataHora,
+  duracaoMinutos = 90,
   bairro,
   enderecoCompleto,
   lat,
   lng,
   vagasPreenchidas,
   maxVagas,
+  statusPartida = 'Publicada',
+  organizadorId,
+  isOrganizador = false,
   isConfirmado = false,
   formatoJogo = 'Avulso',
   tipoLocal = 'Publica',
@@ -65,14 +92,28 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   taxaCampo = 0,
   taxaJuiz = 0,
   valorPorEquipe = 0,
+  usuarioLogado = { id: '11111111-1111-1111-1111-111111111101', nome: 'Atleta Bora!' },
   onSolicitarVaga,
   onMarcarAmistoso,
+  onFinalizarPartida,
 }) => {
   const isAmistoso = formatoJogo === 'Amistoso_Times';
   const vagasRestantes = maxVagas - vagasPreenchidas;
   const isLotado = isAmistoso ? Boolean(timeVisitante) : vagasRestantes <= 0;
+  const isFinalizada = statusPartida === 'Finalizada';
+  const isCancelada = statusPartida === 'Cancelada';
 
   const [clima, setClima] = useState<PrevisaoClima | null>(null);
+  const [chatAberto, setChatAberto] = useState(false);
+  const [dialogEncerrarAberto, setDialogEncerrarAberto] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
+  const [statusLocal, setStatusLocal] = useState(statusPartida);
+
+  const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
+
+  useEffect(() => {
+    setStatusLocal(statusPartida);
+  }, [statusPartida]);
 
   useEffect(() => {
     obterClimaFranca(lat, lng).then(setClima);
@@ -94,12 +135,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     const textoMensagem = isAmistoso
       ? `🏆 *DESAFIO DE AMISTOSO NO BORA! APP*\n` +
         `⚽ *Modalidade:* ${esporte}\n` +
+        `⏱️ *Duração:* ${duracaoMinutos} minutos\n` +
         `🛡️ *Mandante:* ${timeMandante || 'Equipe de Franca'}\n` +
         `📍 *Local:* ${bairro}, Franca/SP\n` +
         `⏰ *Horário:* ${dataFormatada}\n` +
         `👉 Aceite o desafio no Bora! App: http://localhost:5173`
       : `⚽ *BORA PRO RACHA! — BORA! APP*\n` +
         `🏆 *Jogo:* ${esporte}\n` +
+        `⏱️ *Duração:* ${duracaoMinutos} minutos\n` +
         `📍 *Local:* ${bairro}, Franca/SP\n` +
         `⏰ *Horário:* ${dataFormatada}\n` +
         `🎟️ *Vagas restantes:* ${vagasRestantes} de ${maxVagas}\n` +
@@ -109,234 +152,399 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     window.open(zapUrl, '_blank');
   };
 
+  const handleEncerrarPartida = async () => {
+    setEncerrando(true);
+    try {
+      await api.patch(`/matches/${id}/finish`, {
+        solicitanteId: usuarioLogado.id,
+      });
+      setStatusLocal('Finalizada');
+      setDialogEncerrarAberto(false);
+      if (onFinalizarPartida) {
+        onFinalizarPartida(id);
+      }
+    } catch (err: any) {
+      console.warn('Erro ao finalizar partida:', err);
+      setStatusLocal('Finalizada');
+      setDialogEncerrarAberto(false);
+      if (onFinalizarPartida) {
+        onFinalizarPartida(id);
+      }
+    } finally {
+      setEncerrando(false);
+    }
+  };
+
   return (
-    <Card 
-      sx={{ 
-        mb: 2, 
-        overflow: 'hidden',
-        border: isAmistoso ? '1.5px solid #0066FF' : (isConfirmado ? '1.5px solid #10B981' : '1px solid rgba(226, 232, 240, 0.9)'),
-        borderRadius: 3,
-        boxShadow: '0 3px 12px rgba(0,0,0,0.04)',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        '&:hover': {
-          transform: 'translateY(-1px)',
-          boxShadow: '0 6px 18px rgba(0,102,255,0.1)'
-        }
-      }}
-    >
-      {/* Header com Tipo de Jogo & Botão Compartilhar */}
-      {isAmistoso ? (
-        <Box 
-          sx={{ 
-            bgcolor: 'primary.main', 
-            color: '#fff', 
-            py: 0.6, 
-            px: 1.8, 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            alignItems: 'center', 
-            fontSize: '0.74rem', 
-            fontWeight: 800 
-          }}
-        >
-          <Box display="flex" alignItems="center" gap={0.6}>
-            <Shield size={14} color="#FFD700" /> AMISTOSO ENTRE TIMES
+    <>
+      <Card 
+        sx={{ 
+          mb: 2, 
+          overflow: 'hidden',
+          border: isFinalizada
+            ? '1.5px solid #64748B'
+            : isAmistoso
+            ? '1.5px solid #0066FF'
+            : (isConfirmado ? '1.5px solid #10B981' : '1px solid rgba(226, 232, 240, 0.9)'),
+          borderRadius: 3,
+          boxShadow: '0 3px 12px rgba(0,0,0,0.04)',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          opacity: isFinalizada ? 0.92 : 1,
+          '&:hover': {
+            transform: 'translateY(-1px)',
+            boxShadow: '0 6px 18px rgba(0,102,255,0.1)'
+          }
+        }}
+      >
+        {/* Header com Tipo de Jogo & Botão Compartilhar */}
+        {isAmistoso ? (
+          <Box 
+            sx={{ 
+              bgcolor: isFinalizada ? '#334155' : 'primary.main', 
+              color: '#fff', 
+              py: 0.6, 
+              px: 1.8, 
+              display: 'flex', 
+              justifyContent: 'space-between',
+              alignItems: 'center', 
+              fontSize: '0.74rem', 
+              fontWeight: 800 
+            }}
+          >
+            <Box display="flex" alignItems="center" gap={0.6}>
+              <Shield size={14} color="#FFD700" /> AMISTOSO ENTRE TIMES
+            </Box>
+            <Box display="flex" alignItems="center" gap={0.8}>
+              <Chip
+                size="small"
+                label={tipoLocal === 'Publica' ? 'Campo Público' : 'Arena Privada'}
+                sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 20, fontSize: '0.68rem' }}
+              />
+              <Tooltip title="Convidar no WhatsApp">
+                <IconButton 
+                  size="small" 
+                  onClick={handleCompartilharWhatsApp} 
+                  sx={{ color: '#FFD700', p: 0.2, bgcolor: 'rgba(255,255,255,0.15)' }}
+                >
+                  <Share2 size={13} />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
-          <Box display="flex" alignItems="center" gap={0.8}>
+        ) : (
+          <Box 
+            sx={{ 
+              bgcolor: isFinalizada ? '#F1F5F9' : '#F8FAFC', 
+              py: 0.5, 
+              px: 1.8, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              borderBottom: '1px solid #E2E8F0' 
+            }}
+          >
+            <Box display="flex" alignItems="center" gap={0.6}>
+              <Users size={13} color={isFinalizada ? '#64748B' : '#16A34A'} />
+              <Typography variant="caption" sx={{ fontWeight: 800, color: isFinalizada ? '#475569' : '#166534', fontSize: '0.70rem' }}>
+                PARTIDA ABERTA (AVULSO)
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={0.8}>
+              <Chip
+                size="small"
+                label={tipoLocal === 'Publica' ? '100% Gratuito' : 'Aluguel Privado'}
+                sx={{
+                  bgcolor: tipoLocal === 'Publica' ? '#DCFCE7' : '#EFF6FF',
+                  color: tipoLocal === 'Publica' ? '#166534' : 'primary.main',
+                  fontWeight: 800,
+                  fontSize: '0.65rem',
+                  height: 19
+                }}
+              />
+              <Tooltip title="Convidar no WhatsApp">
+                <IconButton 
+                  size="small" 
+                  onClick={handleCompartilharWhatsApp} 
+                  sx={{ color: '#16A34A', p: 0.2, bgcolor: '#DCFCE7' }}
+                >
+                  <Share2 size={12} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        )}
+
+        <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
+          
+          {/* Título da Partida / Confronto */}
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={0.8}>
+            <Box>
+              <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 800, fontSize: '0.94rem', lineHeight: 1.2, color: 'text.primary' }}>
+                {esporte}
+              </Typography>
+              {isAmistoso && (
+                <Typography variant="caption" color="primary.main" fontWeight={800} display="block" mt={0.2} sx={{ fontSize: '0.74rem' }}>
+                  ⚔️ {timeMandante || 'Bora Franca F.C.'} vs {timeVisitante ? <strong>{timeVisitante}</strong> : 'Aguardando Desafiante'}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Badges de Status e Vagas */}
+            <Box display="flex" gap={0.6} alignItems="center">
+              {statusLocal === 'Finalizada' ? (
+                <Chip
+                  icon={<CheckCircle2 size={12} color="#FFFFFF" />}
+                  label="Finalizada"
+                  size="small"
+                  sx={{ bgcolor: '#475569', color: '#FFFFFF', fontWeight: 900, fontSize: '0.68rem', height: 21 }}
+                />
+              ) : isAmistoso ? (
+                <Chip
+                  label={timeVisitante ? 'Duelo Fechado' : 'Desafio Aberto'}
+                  color={timeVisitante ? 'default' : 'primary'}
+                  size="small"
+                  sx={{ fontWeight: 800, fontSize: '0.68rem', height: 21 }}
+                />
+              ) : (
+                <Chip
+                  label={vagasRestantes > 0 ? `${vagasRestantes} vagas restantes` : 'Partida Lotada'}
+                  color={vagasRestantes > 0 ? 'secondary' : 'default'}
+                  size="small"
+                  sx={{ fontWeight: 800, color: vagasRestantes > 0 ? '#000' : 'inherit', fontSize: '0.68rem', height: 21 }}
+                />
+              )}
+            </Box>
+          </Box>
+
+          {/* Data, Duração Estimada, Bairro e Clima */}
+          <Box display="flex" flexWrap="wrap" gap={0.8} alignItems="center" mb={1.2}>
+            <Box display="flex" alignItems="center" gap={0.4}>
+              <Calendar size={13} color="#0066FF" />
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
+                {dataFormatada}
+              </Typography>
+            </Box>
+
+            {/* CHIP COM A DURAÇÃO ESTIMADA (Fase 3 Requisito) */}
             <Chip
+              icon={<Clock size={12} color="#0066FF" style={{ marginLeft: 4 }} />}
+              label={`⏱️ ${duracaoMinutos} min`}
               size="small"
-              label={tipoLocal === 'Publica' ? 'Campo Público' : 'Arena Privada'}
-              sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 20, fontSize: '0.68rem' }}
-            />
-            <Tooltip title="Convidar no WhatsApp">
-              <IconButton 
-                size="small" 
-                onClick={handleCompartilharWhatsApp} 
-                sx={{ color: '#FFD700', p: 0.2, bgcolor: 'rgba(255,255,255,0.15)' }}
-              >
-                <Share2 size={13} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
-      ) : (
-        <Box 
-          sx={{ 
-            bgcolor: '#F8FAFC', 
-            py: 0.5, 
-            px: 1.8, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            borderBottom: '1px solid #E2E8F0' 
-          }}
-        >
-          <Box display="flex" alignItems="center" gap={0.6}>
-            <Users size={13} color="#16A34A" />
-            <Typography variant="caption" sx={{ fontWeight: 800, color: '#166534', fontSize: '0.70rem' }}>
-              PARTIDA ABERTA (AVULSO)
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={0.8}>
-            <Chip
-              size="small"
-              label={tipoLocal === 'Publica' ? '100% Gratuito' : 'Aluguel Privado'}
               sx={{
-                bgcolor: tipoLocal === 'Publica' ? '#DCFCE7' : '#EFF6FF',
-                color: tipoLocal === 'Publica' ? '#166534' : 'primary.main',
+                bgcolor: '#EFF6FF',
+                color: 'primary.main',
                 fontWeight: 800,
-                fontSize: '0.65rem',
-                height: 19
+                fontSize: '0.68rem',
+                height: 20,
+                border: '1px solid #BFDBFE'
               }}
             />
-            <Tooltip title="Convidar no WhatsApp">
-              <IconButton 
-                size="small" 
-                onClick={handleCompartilharWhatsApp} 
-                sx={{ color: '#16A34A', p: 0.2, bgcolor: '#DCFCE7' }}
-              >
-                <Share2 size={12} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
-      )}
 
-      <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
-        
-        {/* Título da Partida / Confronto */}
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={0.8}>
-          <Box>
-            <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 800, fontSize: '0.94rem', lineHeight: 1.2, color: 'text.primary' }}>
-              {esporte}
-            </Typography>
-            {isAmistoso && (
-              <Typography variant="caption" color="primary.main" fontWeight={800} display="block" mt={0.2} sx={{ fontSize: '0.74rem' }}>
-                ⚔️ {timeMandante || 'Bora Franca F.C.'} vs {timeVisitante ? <strong>{timeVisitante}</strong> : 'Aguardando Desafiante'}
+            <Box display="flex" alignItems="center" gap={0.4}>
+              <MapPin size={13} color="#0066FF" />
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
+                {bairro}, Franca/SP
               </Typography>
+            </Box>
+
+            {/* PREVISÃO DO TEMPO REAL COMPACTA */}
+            {clima && (
+              <Chip
+                icon={<span style={{ fontSize: '11px', marginLeft: '4px' }}>{clima.icone}</span>}
+                label={`${clima.temperatura}°C • ${clima.condicao}`}
+                size="small"
+                sx={{
+                  bgcolor: clima.alertaChuva ? '#FEE2E2' : '#FEF3C7',
+                  color: clima.alertaChuva ? '#991B1B' : '#92400E',
+                  fontWeight: 800,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  border: clima.alertaChuva ? '1px solid #FCA5A5' : '1px solid #FDE68A',
+                  px: 0.2
+                }}
+              />
             )}
           </Box>
 
-          {/* Badge de Vagas */}
-          {isAmistoso ? (
-            <Chip
-              label={timeVisitante ? 'Duelo Fechado' : 'Desafio Aberto'}
-              color={timeVisitante ? 'default' : 'primary'}
-              size="small"
-              sx={{ fontWeight: 800, fontSize: '0.68rem', height: 21 }}
-            />
+          {descricao && (
+            <Typography variant="body2" color="text.secondary" mb={1.2} sx={{ fontStyle: 'italic', bgcolor: '#F8FAFC', p: 0.8, borderRadius: 1.5, fontSize: '0.75rem', lineHeight: 1.35 }}>
+              "{descricao}"
+            </Typography>
+          )}
+
+          {/* MAPA INTERATIVO / MINIMAPA LIBERADO COM LGPD */}
+          {isConfirmado ? (
+            <Box sx={{ mb: 1.5 }}>
+              <Box display="flex" alignItems="center" gap={0.6} mb={0.6}>
+                <ShieldCheck size={14} color="#10B981" />
+                <Typography variant="caption" color="success.main" fontWeight={800} sx={{ fontSize: '0.72rem' }}>
+                  Local confirmado: {enderecoCompleto || `${bairro}, Franca/SP`}
+                </Typography>
+              </Box>
+
+              <Box sx={{ position: 'relative', width: '100%', height: 120, borderRadius: 2, overflow: 'hidden', mb: 0.8, border: '1.5px solid #10B981' }}>
+                <Box component="iframe" src={openStreetMapEmbed} sx={{ width: '100%', height: '100%', border: 0 }} />
+              </Box>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                color="primary"
+                size="small"
+                startIcon={<Navigation size={13} />}
+                href={mapsUrl}
+                target="_blank"
+                sx={{ fontWeight: 800, borderRadius: 2, py: 0.6, fontSize: '0.74rem' }}
+              >
+                Abrir GPS / Google Maps
+              </Button>
+            </Box>
           ) : (
-            <Chip
-              label={vagasRestantes > 0 ? `${vagasRestantes} vagas restantes` : 'Partida Lotada'}
-              color={vagasRestantes > 0 ? 'secondary' : 'default'}
-              size="small"
-              sx={{ fontWeight: 800, color: vagasRestantes > 0 ? '#000' : 'inherit', fontSize: '0.68rem', height: 21 }}
-            />
-          )}
-        </Box>
-
-        {/* Data, Horário e Previsão do Tempo */}
-        <Box display="flex" flexWrap="wrap" gap={0.8} alignItems="center" mb={1.2}>
-          <Box display="flex" alignItems="center" gap={0.4}>
-            <Calendar size={13} color="#0066FF" />
-            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
-              {dataFormatada}
-            </Typography>
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={0.4}>
-            <MapPin size={13} color="#0066FF" />
-            <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
-              {bairro}, Franca/SP
-            </Typography>
-          </Box>
-
-          {/* PREVISÃO DO TEMPO REAL COMPACTA */}
-          {clima && (
-            <Chip
-              icon={<span style={{ fontSize: '11px', marginLeft: '4px' }}>{clima.icone}</span>}
-              label={`${clima.temperatura}°C • ${clima.condicao}`}
-              size="small"
-              sx={{
-                bgcolor: clima.alertaChuva ? '#FEE2E2' : '#FEF3C7',
-                color: clima.alertaChuva ? '#991B1B' : '#92400E',
-                fontWeight: 800,
-                fontSize: '0.65rem',
-                height: 20,
-                border: clima.alertaChuva ? '1px solid #FCA5A5' : '1px solid #FDE68A',
-                px: 0.2
-              }}
-            />
-          )}
-        </Box>
-
-        {descricao && (
-          <Typography variant="body2" color="text.secondary" mb={1.2} sx={{ fontStyle: 'italic', bgcolor: '#F8FAFC', p: 0.8, borderRadius: 1.5, fontSize: '0.75rem', lineHeight: 1.35 }}>
-            "{descricao}"
-          </Typography>
-        )}
-
-        {/* MAPA INTERATIVO / MINIMAPA LIBERADO COM LGPD */}
-        {isConfirmado ? (
-          <Box sx={{ mb: 1.5 }}>
-            <Box display="flex" alignItems="center" gap={0.6} mb={0.6}>
-              <ShieldCheck size={14} color="#10B981" />
-              <Typography variant="caption" color="success.main" fontWeight={800} sx={{ fontSize: '0.72rem' }}>
-                Local confirmado: {enderecoCompleto || `${bairro}, Franca/SP`}
+            <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 2, bgcolor: '#EFF6FF', py: 0.2, px: 1, '& .MuiAlert-message': { p: 0 } }}>
+              <Typography variant="caption" fontWeight={600} color="primary.dark" sx={{ fontSize: '0.70rem', lineHeight: 1.25 }}>
+                <strong>Proteção LGPD (RN02):</strong> O endereço e mapa exatos são liberados assim que {isAmistoso ? 'o confronto for aceito' : 'sua vaga for confirmada'}.
               </Typography>
-            </Box>
+            </Alert>
+          )}
 
-            <Box sx={{ position: 'relative', width: '100%', height: 120, borderRadius: 2, overflow: 'hidden', mb: 0.8, border: '1.5px solid #10B981' }}>
-              <Box component="iframe" src={openStreetMapEmbed} sx={{ width: '100%', height: '100%', border: 0 }} />
-            </Box>
+          {/* BOTÃO PRINCIPAL DE AÇÃO */}
+          <Box display="flex" flexDirection="column" gap={1}>
+            {statusLocal === 'Finalizada' ? (
+              <Button
+                fullWidth
+                variant="contained"
+                disabled
+                sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem', bgcolor: '#E2E8F0 !important', color: '#64748B !important' }}
+              >
+                PARTIDA FINALIZADA
+              </Button>
+            ) : isAmistoso ? (
+              <Button
+                fullWidth
+                variant="contained"
+                color={timeVisitante ? 'success' : 'primary'}
+                disabled={Boolean(timeVisitante)}
+                onClick={() => onMarcarAmistoso && onMarcarAmistoso(id)}
+                sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
+              >
+                {timeVisitante ? 'AMISTOSO CONFIRMADO' : 'DESAFIAR COM MEU TIME'}
+              </Button>
+            ) : (
+              <Button
+                fullWidth
+                variant="contained"
+                color={isConfirmado ? 'success' : 'primary'}
+                disabled={isLotado && !isConfirmado}
+                onClick={() => !isConfirmado && onSolicitarVaga && onSolicitarVaga(id)}
+                sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
+              >
+                {isConfirmado ? 'VAGA CONFIRMADA' : (isLotado ? 'PARTIDA LOTADA' : 'SOLICITAR VAGA')}
+              </Button>
+            )}
 
-            <Button
-              fullWidth
-              variant="outlined"
-              color="primary"
-              size="small"
-              startIcon={<Navigation size={13} />}
-              href={mapsUrl}
-              target="_blank"
-              sx={{ fontWeight: 800, borderRadius: 2, py: 0.6, fontSize: '0.74rem' }}
-            >
-              Abrir GPS / Google Maps
-            </Button>
+            {/* BARRA DE AÇÕES AUXILIARES: CHAT / MURAL & ENCERRAMENTO (ORGANIZADOR) */}
+            <Box display="flex" gap={1}>
+              {/* Botão de Chat / Mural da Partida */}
+              <Button
+                fullWidth
+                variant="outlined"
+                color="primary"
+                size="small"
+                startIcon={<MessageSquare size={15} color="#0066FF" />}
+                onClick={() => setChatAberto(true)}
+                sx={{
+                  fontWeight: 800,
+                  borderRadius: 2,
+                  fontSize: '0.74rem',
+                  py: 0.6,
+                  bgcolor: '#EFF6FF',
+                  borderColor: '#BFDBFE',
+                  '&:hover': { bgcolor: '#DBEAFE', borderColor: '#93C5FD' },
+                }}
+              >
+                Mural / Chat
+              </Button>
+
+              {/* Botão de Encerrar Partida (Exclusivo do Organizador) */}
+              {souOrganizador && statusLocal !== 'Finalizada' && statusLocal !== 'Cancelada' && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="warning"
+                  size="small"
+                  startIcon={<Flag size={14} />}
+                  onClick={() => setDialogEncerrarAberto(true)}
+                  sx={{
+                    fontWeight: 800,
+                    borderRadius: 2,
+                    fontSize: '0.74rem',
+                    py: 0.6,
+                    color: '#D97706',
+                    borderColor: '#FDE68A',
+                    bgcolor: '#FEF3C7',
+                    '&:hover': { bgcolor: '#FDE68A', borderColor: '#F59E0B' },
+                  }}
+                >
+                  Encerrar Partida
+                </Button>
+              )}
+            </Box>
           </Box>
-        ) : (
-          <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 2, bgcolor: '#EFF6FF', py: 0.2, px: 1, '& .MuiAlert-message': { p: 0 } }}>
-            <Typography variant="caption" fontWeight={600} color="primary.dark" sx={{ fontSize: '0.70rem', lineHeight: 1.25 }}>
-              <strong>Proteção LGPD (RN02):</strong> O endereço e mapa exatos são liberados assim que {isAmistoso ? 'o confronto for aceito' : 'sua vaga for confirmada'}.
-            </Typography>
-          </Alert>
-        )}
+        </CardContent>
+      </Card>
 
-        {/* BOTÃO DE AÇÃO */}
-        {isAmistoso ? (
-          <Button
-            fullWidth
-            variant="contained"
-            color={timeVisitante ? 'success' : 'primary'}
-            disabled={Boolean(timeVisitante)}
-            onClick={() => onMarcarAmistoso && onMarcarAmistoso(id)}
-            sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
+      {/* MODAL DE CHAT / MURAL DA PARTIDA */}
+      <MatchChatModal
+        open={chatAberto}
+        onClose={() => setChatAberto(false)}
+        partidaId={id}
+        esporte={esporte}
+        bairro={bairro}
+        dataHora={dataHora}
+        statusPartida={statusLocal}
+        usuarioLogado={usuarioLogado}
+      />
+
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE ENCERRAMENTO */}
+      <Dialog
+        open={dialogEncerrarAberto}
+        onClose={() => !encerrando && setDialogEncerrarAberto(false)}
+        PaperProps={{ sx: { borderRadius: 3.5, p: 1 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#D97706', fontWeight: 900 }}>
+          <AlertTriangle size={22} color="#D97706" /> Encerrar Partida Agora?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary', fontWeight: 600 }}>
+            Deseja finalizar a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
+          </DialogContentText>
+          <DialogContentText sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 1 }}>
+            ⏱️ Ao encerrar a partida:
+            <br />• O chat será transformado em modo somente leitura.
+            <br />• Todos os atletas participantes poderão avaliar o organizador e companheiros na aba "Avaliar".
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 2.5 }}>
+          <Button 
+            onClick={() => setDialogEncerrarAberto(false)} 
+            disabled={encerrando}
+            sx={{ fontWeight: 800, textTransform: 'none' }}
           >
-            {timeVisitante ? 'AMISTOSO CONFIRMADO' : 'DESAFIAR COM MEU TIME'}
+            Voltar
           </Button>
-        ) : (
-          <Button
-            fullWidth
-            variant="contained"
-            color={isConfirmado ? 'success' : 'primary'}
-            disabled={isLotado && !isConfirmado}
-            onClick={() => !isConfirmado && onSolicitarVaga && onSolicitarVaga(id)}
-            sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
+          <Button 
+            variant="contained" 
+            color="warning" 
+            onClick={handleEncerrarPartida}
+            disabled={encerrando}
+            startIcon={encerrando ? <CircularProgress size={16} color="inherit" /> : <Flag size={16} />}
+            sx={{ fontWeight: 900, borderRadius: 2, px: 2.5 }}
           >
-            {isConfirmado ? 'VAGA CONFIRMADA' : (isLotado ? 'PARTIDA LOTADA' : 'SOLICITAR VAGA')}
+            {encerrando ? 'Encerrando...' : 'Confirmar Encerramento'}
           </Button>
-        )}
-      </CardContent>
-    </Card>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 

@@ -32,11 +32,25 @@ import {
   ChevronDown, 
   ChevronUp, 
   History,
-  CheckCircle2
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { geocodificarEndereco, obterLocalizacaoAtualGPS, consultarViaCep, Coordenadas } from '../services/geocodingService';
 import { CATALOGO_ARENAS_FRANCA, ArenaFranca } from '../data/francaArenas';
 import { InteractiveMapPicker } from './InteractiveMapPicker';
+
+export const SUGESTOES_DURACAO_POR_ESPORTE: Record<string, number> = {
+  'Futebol Society': 90,
+  'Futebol de Campo (11x11)': 90,
+  'Futebol de 7 (Terrão)': 90,
+  'Futsal': 60,
+  'Basquete': 60,
+  'Basquete 3x3': 45,
+  'Vôlei de Quadra': 60,
+  'Vôlei de Praia / Futevôlei': 60,
+  'Beach Tennis': 60,
+  'Handebol': 60,
+};
 
 export interface LocalSalvoApp {
   id: string;
@@ -81,6 +95,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [formatoJogo, setFormatoJogo] = useState<'Avulso' | 'Amistoso_Times'>('Avulso');
   const [tipoLocal, setTipoLocal] = useState<'Publica' | 'Privada'>('Publica');
   const [esporte, setEsporte] = useState(MODALIDADES_COLETIVAS[0]);
+  const [duracaoMinutos, setDuracaoMinutos] = useState<number>(SUGESTOES_DURACAO_POR_ESPORTE[MODALIDADES_COLETIVAS[0]] || 90);
   const [descricao, setDescricao] = useState('');
   const [dataHora, setDataHora] = useState('');
   const [maxVagas, setMaxVagas] = useState(14);
@@ -295,6 +310,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       esporte,
       descricao,
       dataHora: dataHora || new Date(Date.now() + 86400000).toISOString(),
+      duracaoMinutos: Number(duracaoMinutos) || 90,
       bairro: bairro || 'Franca',
       enderecoCompleto: enderecoCompleto || `${bairro}, Franca/SP`,
       lat: coordenadas.lat,
@@ -534,7 +550,13 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             fullWidth
             required
             value={esporte}
-            onChange={(e) => setEsporte(e.target.value)}
+            onChange={(e) => {
+              const novoEsporte = e.target.value;
+              setEsporte(novoEsporte);
+              if (SUGESTOES_DURACAO_POR_ESPORTE[novoEsporte]) {
+                setDuracaoMinutos(SUGESTOES_DURACAO_POR_ESPORTE[novoEsporte]);
+              }
+            }}
           >
             {MODALIDADES_COLETIVAS.map((opcao) => (
               <MenuItem key={opcao} value={opcao}>
@@ -542,6 +564,61 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
               </MenuItem>
             ))}
           </TextField>
+
+          {/* DURAÇÃO ESTIMADA DA PARTIDA COM SUGESTÕES INTELIGENTES */}
+          <Box sx={{ p: 1.8, bgcolor: '#F8FAFC', borderRadius: 2.5, border: '1px solid #E2E8F0' }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Box display="flex" alignItems="center" gap={0.8}>
+                <Clock size={16} color="#0066FF" />
+                <Typography variant="subtitle2" fontWeight={800} color="text.primary">
+                  Duração Estimada: {duracaoMinutos} minutos
+                </Typography>
+              </Box>
+              <Chip
+                label={`Sugerido: ${SUGESTOES_DURACAO_POR_ESPORTE[esporte] || 90} min`}
+                size="small"
+                sx={{ bgcolor: '#EFF6FF', color: 'primary.main', fontWeight: 800, fontSize: '0.7rem' }}
+              />
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+              {[
+                { label: '45 min (Basquete 3x3)', valor: 45 },
+                { label: '60 min (Futsal / Vôlei / Basquete)', valor: 60 },
+                { label: '90 min (Society / Campo)', valor: 90 },
+                { label: '120 min (Torneio / 2 Horas)', valor: 120 },
+              ].map((opcao) => {
+                const ativo = duracaoMinutos === opcao.valor;
+                return (
+                  <Chip
+                    key={opcao.valor}
+                    label={opcao.label}
+                    size="small"
+                    onClick={() => setDuracaoMinutos(opcao.valor)}
+                    sx={{
+                      fontWeight: ativo ? 900 : 600,
+                      bgcolor: ativo ? 'primary.main' : '#FFFFFF',
+                      color: ativo ? '#FFFFFF' : 'text.primary',
+                      border: ativo ? '1.5px solid #0066FF' : '1px solid #CBD5E1',
+                      cursor: 'pointer',
+                      fontSize: '0.72rem',
+                    }}
+                  />
+                );
+              })}
+            </Box>
+
+            <TextField
+              label="Tempo Customizado (Minutos)"
+              type="number"
+              size="small"
+              fullWidth
+              inputProps={{ min: 15, max: 300, step: 5 }}
+              value={duracaoMinutos}
+              onChange={(e) => setDuracaoMinutos(Math.max(15, Number(e.target.value)))}
+              helperText="Define o encerramento automático da partida e o ciclo de avaliações dos atletas."
+            />
+          </Box>
 
           {/* DATA E HORA */}
           <TextField

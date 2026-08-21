@@ -1,4 +1,4 @@
-﻿import { GerenciarSolicitacaoUseCase } from '../../src/application/use-cases/GerenciarSolicitacaoUseCase';
+import { GerenciarSolicitacaoUseCase } from '../../src/application/use-cases/GerenciarSolicitacaoUseCase';
 import { Partida } from '../../src/domain/entities/Partida';
 import { Solicitacao } from '../../src/domain/entities/Solicitacao';
 import { StatusPartidaEnum, StatusSolicitacaoEnum } from '../../src/domain/enums/StatusEnums';
@@ -14,7 +14,9 @@ describe('Caso de Uso: GerenciarSolicitacaoUseCase (Regra RN01)', () => {
       criar: jest.fn(),
       buscarPorId: jest.fn(),
       buscarPorRaio: jest.fn(),
+      buscarPartidasExpiradas: jest.fn(),
       atualizar: jest.fn(),
+      softDelete: jest.fn(),
     };
 
     fakeSolicitacaoRepo = {
@@ -23,7 +25,9 @@ describe('Caso de Uso: GerenciarSolicitacaoUseCase (Regra RN01)', () => {
       buscarPorPartidaEUsuario: jest.fn(),
       listarPorPartida: jest.fn(),
       listarPorUsuario: jest.fn(),
+      listarTodasDetalhes: jest.fn(),
       atualizar: jest.fn(),
+      rejeitarPendentesPorPartida: jest.fn(),
       verificarConflitoHorario: jest.fn(),
     };
 

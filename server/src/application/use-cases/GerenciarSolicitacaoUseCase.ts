@@ -1,4 +1,4 @@
-import { IPartidaRepository, ISolicitacaoRepository } from '../repositories/IRepositories';
+import { IPartidaRepository, ISolicitacaoRepository, IWebSocketNotificationService } from '../repositories/IRepositories';
 
 export interface GerenciarSolicitacaoInput {
   solicitacaoId: string;
@@ -9,7 +9,8 @@ export interface GerenciarSolicitacaoInput {
 export class GerenciarSolicitacaoUseCase {
   constructor(
     private solicitacaoRepo: ISolicitacaoRepository,
-    private partidaRepo: IPartidaRepository
+    private partidaRepo: IPartidaRepository,
+    private wsNotificationService?: IWebSocketNotificationService
   ) {}
 
   public async execute(input: GerenciarSolicitacaoInput): Promise<void> {
@@ -30,6 +31,13 @@ export class GerenciarSolicitacaoUseCase {
     if (input.acao === 'rejeitar') {
       solicitacao.rejeitar();
       await this.solicitacaoRepo.atualizar(solicitacao);
+      if (this.wsNotificationService) {
+        this.wsNotificationService.notificarUsuario(solicitacao.usuarioId, 'request_decision', {
+          solicitacaoId: solicitacao.id,
+          partidaId: partida.id,
+          status: 'Rejeitada',
+        });
+      }
       return;
     }
 
@@ -49,5 +57,18 @@ export class GerenciarSolicitacaoUseCase {
 
     await this.partidaRepo.atualizar(partida);
     await this.solicitacaoRepo.atualizar(solicitacao);
+
+    if (this.wsNotificationService) {
+      this.wsNotificationService.notificarUsuario(solicitacao.usuarioId, 'request_decision', {
+        solicitacaoId: solicitacao.id,
+        partidaId: partida.id,
+        status: 'Aprovada',
+      });
+      this.wsNotificationService.broadcastParaPartida(partida.id, 'match_slot_filled', {
+        partidaId: partida.id,
+        vagasPreenchidas: partida.vagasPreenchidas,
+        maxVagas: partida.maxVagas,
+      });
+    }
   }
 }
