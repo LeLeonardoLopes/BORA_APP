@@ -431,7 +431,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
           )}
 
           {tipoLocal === 'Publica' && formatoJogo === 'Amistoso_Times' && (
-            <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px solid #0066FF' }}>
+            <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1.5px solid #0066FF' }}>
               <Alert severity="success" sx={{ mb: 1.5, borderRadius: 2 }}>
                 🏟️ <strong>Campo Público Gratuito:</strong> Taxa de campo R$ 0,00. Caso contratarem arbitragem para o amistoso, informe o valor do juiz para rateio 50%/50%.
               </Alert>
@@ -462,7 +462,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
           )}
 
           {tipoLocal === 'Privada' && formatoJogo === 'Amistoso_Times' && (
-            <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px solid #0066FF' }}>
+            <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1.5px solid #0066FF' }}>
               <Typography variant="subtitle2" fontWeight={800} color="primary.main" mb={1.5}>
                 💰 Custos do Amistoso Privado (Divididos 50%/50% por equipe)
               </Typography>
@@ -512,7 +512,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
           )}
 
           {tipoLocal === 'Privada' && formatoJogo === 'Avulso' && (
-            <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1.5px solid #0066FF' }}>
+            <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1.5px solid #0066FF' }}>
               <Typography variant="subtitle2" fontWeight={800} color="primary.main" mb={1.5}>
                 💰 Aluguel de Quadra Privada (Rateio Individual por Vaga)
               </Typography>

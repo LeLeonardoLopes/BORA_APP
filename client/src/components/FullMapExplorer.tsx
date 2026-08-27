@@ -13,11 +13,12 @@ export interface FullMapExplorerProps {
 }
 
 // Ícones personalizados para cada modalidade esportiva em Franca
-const criarIconeEsporte = (esporte: string, isAmistoso: boolean) => {
+const criarIconeEsporte = (esporte: string = '', isAmistoso: boolean = false) => {
   const cor = isAmistoso ? '#0066FF' : '#16A34A';
-  const emoji = esporte.includes('Basquete') ? '🏀' 
-    : esporte.includes('Vôlei') || esporte.includes('Futevôlei') ? '🏐'
-    : esporte.includes('Beach Tennis') ? '🎾'
+  const esp = String(esporte || '');
+  const emoji = esp.includes('Basquete') ? '🏀' 
+    : esp.includes('Vôlei') || esp.includes('Futevôlei') ? '🏐'
+    : esp.includes('Beach Tennis') ? '🎾'
     : '⚽';
 
   const html = `

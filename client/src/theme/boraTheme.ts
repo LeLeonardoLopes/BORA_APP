@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, alpha } from '@mui/material/styles';
 
 export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
   const isDark = mode === 'dark';
@@ -7,9 +7,9 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
     palette: {
       mode,
       primary: {
-        main: isDark ? '#3B82F6' : '#0066FF',
-        light: isDark ? '#60A5FA' : '#3385FF',
-        dark: isDark ? '#1D4ED8' : '#0047B3',
+        main: '#0066FF',
+        light: '#3385FF',
+        dark: '#0047B3',
         contrastText: '#FFFFFF',
       },
       secondary: {
@@ -19,12 +19,12 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
         contrastText: '#0F172A',
       },
       background: {
-        default: isDark ? '#0B0F19' : '#F1F5F9', // Slate 950 ou Slate 100
-        paper: isDark ? '#131B2E' : '#FFFFFF',   // Slate 900 ou Branco Puro
+        default: isDark ? '#0A0E17' : '#F8FAFC',
+        paper: isDark ? '#111827' : '#FFFFFF',
       },
       text: {
-        primary: isDark ? '#F8FAFC' : '#0F172A', // Branco Neve ou Slate 900
-        secondary: isDark ? '#94A3B8' : '#64748B', // Slate 400 ou Slate 500
+        primary: isDark ? '#F8FAFC' : '#0F172A',
+        secondary: isDark ? '#94A3B8' : '#64748B',
       },
       success: {
         main: '#10B981',
@@ -38,21 +38,28 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
         main: '#F59E0B',
         light: isDark ? '#78350F' : '#FEF3C7',
       },
+      info: {
+        main: '#0284C7',
+        light: isDark ? '#075985' : '#E0F2FE',
+      },
     },
     typography: {
       fontFamily: '"Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      h4: { fontFamily: '"Poppins", sans-serif', fontWeight: 900, fontSize: '1.4rem', letterSpacing: '-0.02em' },
-      h5: { fontFamily: '"Poppins", sans-serif', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.01em' },
-      h6: { fontFamily: '"Poppins", sans-serif', fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-0.005em' },
-      subtitle1: { fontFamily: '"Poppins", sans-serif', fontWeight: 700, fontSize: '0.92rem', lineHeight: 1.35 },
-      subtitle2: { fontFamily: '"Poppins", sans-serif', fontWeight: 700, fontSize: '0.84rem', lineHeight: 1.35 },
-      body1: { fontFamily: '"Poppins", sans-serif', fontSize: '0.88rem', lineHeight: 1.45 },
-      body2: { fontFamily: '"Poppins", sans-serif', fontSize: '0.80rem', lineHeight: 1.4 },
+      h1: { fontFamily: '"Poppins", sans-serif', fontWeight: 900, fontSize: '2.2rem', letterSpacing: '-0.03em' },
+      h2: { fontFamily: '"Poppins", sans-serif', fontWeight: 900, fontSize: '1.8rem', letterSpacing: '-0.025em' },
+      h3: { fontFamily: '"Poppins", sans-serif', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.02em' },
+      h4: { fontFamily: '"Poppins", sans-serif', fontWeight: 800, fontSize: '1.3rem', letterSpacing: '-0.015em' },
+      h5: { fontFamily: '"Poppins", sans-serif', fontWeight: 800, fontSize: '1.15rem', letterSpacing: '-0.01em' },
+      h6: { fontFamily: '"Poppins", sans-serif', fontWeight: 800, fontSize: '1.0rem', letterSpacing: '-0.005em' },
+      subtitle1: { fontFamily: '"Poppins", sans-serif', fontWeight: 700, fontSize: '0.92rem', lineHeight: 1.4 },
+      subtitle2: { fontFamily: '"Poppins", sans-serif', fontWeight: 700, fontSize: '0.84rem', lineHeight: 1.4 },
+      body1: { fontFamily: '"Poppins", sans-serif', fontSize: '0.88rem', lineHeight: 1.5 },
+      body2: { fontFamily: '"Poppins", sans-serif', fontSize: '0.80rem', lineHeight: 1.45 },
       caption: { fontFamily: '"Poppins", sans-serif', fontSize: '0.72rem', lineHeight: 1.3 },
-      button: { fontFamily: '"Poppins", sans-serif', textTransform: 'none', fontWeight: 800, fontSize: '0.82rem', letterSpacing: '0.01em' },
+      button: { fontFamily: '"Poppins", sans-serif', textTransform: 'none', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.01em' },
     },
     shape: {
-      borderRadius: 14,
+      borderRadius: 8,
     },
     components: {
       MuiCssBaseline: {
@@ -61,8 +68,26 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
             fontFamily: '"Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important',
             fontSize: '14px',
             color: isDark ? '#F8FAFC' : '#0F172A',
-            backgroundColor: isDark ? '#0B0F19' : '#F1F5F9',
+            backgroundColor: isDark ? '#0A0E17' : '#F8FAFC',
             transition: 'background-color 0.25s ease, color 0.25s ease',
+            WebkitFontSmoothing: 'antialiased',
+            MozOsxFontSmoothing: 'grayscale',
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            borderRadius: 10,
+            boxShadow: isDark
+              ? '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06)'
+              : '0 4px 20px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04)',
+            transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+              boxShadow: isDark
+                ? '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.2)'
+                : '0 8px 30px rgba(0, 102, 255, 0.12), 0 0 0 1px rgba(0, 102, 255, 0.15)',
+            },
           },
         },
       },
@@ -70,48 +95,36 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
         styleOverrides: {
           root: {
             fontFamily: '"Poppins", sans-serif',
-            borderRadius: 12,
+            borderRadius: 8,
             padding: '8px 18px',
-            fontSize: '0.82rem',
+            fontSize: '0.84rem',
             boxShadow: 'none',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
               transform: 'translateY(-1px)',
-              boxShadow: '0 4px 12px rgba(0, 102, 255, 0.25)',
+              boxShadow: '0 6px 18px rgba(0, 102, 255, 0.25)',
             },
             '&:active': {
               transform: 'translateY(0px)',
             },
           },
           containedPrimary: {
-            background: isDark 
-              ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' 
-              : 'linear-gradient(135deg, #0066FF 0%, #0052CC 100%)',
+            background: 'linear-gradient(135deg, #0066FF 0%, #0047B3 100%)',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 14px rgba(0, 102, 255, 0.35)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #1A75FF 0%, #003D99 100%)',
+              boxShadow: '0 6px 20px rgba(0, 102, 255, 0.45)',
+            },
           },
           containedSecondary: {
             background: '#FFD700',
             color: '#0F172A',
+            fontWeight: 900,
+            boxShadow: '0 4px 14px rgba(255, 215, 0, 0.35)',
             '&:hover': {
               background: '#FFE033',
-              boxShadow: '0 4px 16px rgba(255, 215, 0, 0.35)',
-            },
-          },
-        },
-      },
-      MuiCard: {
-        styleOverrides: {
-          root: {
-            borderRadius: 16,
-            backgroundColor: isDark ? '#131B2E' : '#FFFFFF',
-            border: isDark ? '1px solid rgba(51, 65, 85, 0.6)' : '1px solid rgba(226, 232, 240, 0.8)',
-            boxShadow: isDark 
-              ? '0 4px 20px -2px rgba(0, 0, 0, 0.4)' 
-              : '0 3px 14px -2px rgba(15, 23, 42, 0.04)',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
-            '&:hover': {
-              boxShadow: isDark 
-                ? '0 8px 25px -4px rgba(0, 102, 255, 0.2)' 
-                : '0 8px 20px -4px rgba(15, 23, 42, 0.08)',
+              boxShadow: '0 6px 20px rgba(255, 215, 0, 0.45)',
             },
           },
         },
@@ -121,16 +134,16 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
           root: {
             fontFamily: '"Poppins", sans-serif',
             fontWeight: 700,
-            borderRadius: 8,
-            fontSize: '0.74rem',
+            borderRadius: 6,
+            fontSize: '0.72rem',
           },
           sizeSmall: {
-            fontSize: '0.70rem',
-            height: '22px',
+            fontSize: '0.68rem',
+            height: '21px',
           },
           sizeMedium: {
-            fontSize: '0.76rem',
-            height: '28px',
+            fontSize: '0.74rem',
+            height: '26px',
           },
         },
       },
@@ -155,7 +168,7 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
         styleOverrides: {
           root: {
             fontFamily: '"Poppins", sans-serif',
-            borderRadius: 12,
+            borderRadius: 8,
             backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
             color: isDark ? '#F8FAFC' : '#0F172A',
             fontSize: '0.84rem',

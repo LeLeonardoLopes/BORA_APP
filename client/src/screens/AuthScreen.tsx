@@ -14,6 +14,7 @@ import { Check, X as XIcon, ArrowLeft, MailCheck, ShieldCheck } from 'lucide-rea
 import { BoraLogoSVG } from '../components/BoraLogoSVG';
 import { SocialAuthModal } from '../components/SocialAuthModal';
 import { api } from '../services/api';
+import { MenuItem, Select, FormControl } from '@mui/material';
 
 export interface AuthScreenProps {
   onLoginSuccess: (token: string, usuario: any) => void;
@@ -55,6 +56,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [genero, setGenero] = useState<'Feminino' | 'Masculino' | 'Outro'>('Feminino');
   const [codigoOtp, setCodigoOtp] = useState('');
   const [codigoDev, setCodigoDev] = useState<string | null>(null);
 
@@ -134,6 +136,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         cpf: cpf.trim() || undefined,
         email: emailLimpo,
         senha,
+        genero,
         codigoVerificacao: codigoOtp.trim(),
         raioBuscaKm: 5,
       });
@@ -185,8 +188,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         minHeight: '100vh', 
         bgcolor: '#0066FF',
         display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center',
+        flexDirection: 'column', 
+        justifyContent: 'center', 
         alignItems: 'center',
         px: 3,
         py: 4
@@ -369,6 +372,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                 '& .MuiFormHelperText-root': { color: '#FFD700', fontWeight: 700, textAlign: 'center' }
               }}
             />
+
+            <FormControl fullWidth sx={{ bgcolor: '#FFFFFF', borderRadius: 2 }}>
+              <Select
+                value={genero}
+                onChange={(e) => setGenero(e.target.value as any)}
+                displayEmpty
+                sx={{
+                  fontWeight: 700,
+                  color: '#0F172A',
+                  textAlign: 'center',
+                  '& .MuiSelect-select': { py: 1.8, textAlign: 'center' },
+                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
+                }}
+              >
+                <MenuItem value="Feminino" sx={{ fontWeight: 700 }}>👩 Gênero: Feminino (Proteção RN06)</MenuItem>
+                <MenuItem value="Masculino" sx={{ fontWeight: 700 }}>👨 Gênero: Masculino</MenuItem>
+                <MenuItem value="Outro" sx={{ fontWeight: 700 }}>🧑 Gênero: Outro</MenuItem>
+              </Select>
+            </FormControl>
 
             <TextField 
               placeholder="EMAIL" 

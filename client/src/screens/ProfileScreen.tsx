@@ -357,71 +357,127 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* 2. KPI CARDS: ESTATÍSTICAS ESPORTIVAS EM TEMPO REAL */}
       <Box sx={{ px: 0.5, mb: 3 }}>
-        <Typography variant="subtitle2" fontWeight={900} color="text.primary" mb={1.2}>
+        <Typography variant="subtitle2" fontWeight={900} color="text.primary" mb={1.5}>
           📊 Estatísticas Esportivas no Bora! App
         </Typography>
 
-        <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={1.5}>
+        <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={1.8}>
           {/* Card: Partidas Criadas */}
-          <Card sx={{ p: 2, borderRadius: 3, bgcolor: '#FFFFFF', border: '1.5px solid #BFDBFE', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Trophy size={18} color="#0066FF" />
+          <Card 
+            sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              bgcolor: 'background.paper', 
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 2px 10px rgba(0,102,255,0.06)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Box display="flex" alignItems="center" justifyContent="center" gap={0.8} mb={0.5}>
+              <Trophy size={16} color="#0066FF" />
               <Typography variant="caption" fontWeight={800} color="text.secondary">
                 Partidas Criadas
               </Typography>
             </Box>
-            <Typography variant="h5" fontWeight={900} color="primary.main">
+            <Typography variant="h4" fontWeight={900} color="primary.main" my={0.3}>
               {partidasCriadas}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
               como organizador(a)
             </Typography>
           </Card>
 
           {/* Card: Jogos Participados */}
-          <Card sx={{ p: 2, borderRadius: 3, bgcolor: '#FFFFFF', border: '1.5px solid #BBF7D0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Calendar size={18} color="#16A34A" />
+          <Card 
+            sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              bgcolor: 'background.paper', 
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 2px 10px rgba(22,163,74,0.06)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Box display="flex" alignItems="center" justifyContent="center" gap={0.8} mb={0.5}>
+              <Calendar size={16} color="#16A34A" />
               <Typography variant="caption" fontWeight={800} color="text.secondary">
                 Jogos Disputados
               </Typography>
             </Box>
-            <Typography variant="h5" fontWeight={900} color="#166534">
+            <Typography variant="h4" fontWeight={900} color="#16A34A" my={0.3}>
               {jogosParticipados}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
               rachas & amistosos
             </Typography>
           </Card>
 
           {/* Card: Fair Play */}
-          <Card sx={{ p: 2, borderRadius: 3, bgcolor: '#FFFFFF', border: '1.5px solid #FEF08A', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Star size={18} color="#CA8A04" />
+          <Card 
+            sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              bgcolor: 'background.paper', 
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 2px 10px rgba(202,138,4,0.06)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Box display="flex" alignItems="center" justifyContent="center" gap={0.8} mb={0.5}>
+              <Star size={16} color="#FFD700" fill="#FFD700" />
               <Typography variant="caption" fontWeight={800} color="text.secondary">
                 Fair Play & Nota
               </Typography>
             </Box>
-            <Typography variant="h5" fontWeight={900} color="#854D0E">
+            <Typography variant="h4" fontWeight={900} color="secondary.main" my={0.3}>
               {Number(notaMedia).toFixed(2)}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
               ⭐ Nível Ouro
             </Typography>
           </Card>
 
           {/* Card: Taxa de Presença */}
-          <Card sx={{ p: 2, borderRadius: 3, bgcolor: '#FFFFFF', border: '1.5px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-              <Activity size={18} color="#0066FF" />
+          <Card 
+            sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              bgcolor: 'background.paper', 
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 2px 10px rgba(15,23,42,0.06)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Box display="flex" alignItems="center" justifyContent="center" gap={0.8} mb={0.5}>
+              <Activity size={16} color="#0066FF" />
               <Typography variant="caption" fontWeight={800} color="text.secondary">
                 Assiduidade
               </Typography>
             </Box>
-            <Typography variant="h5" fontWeight={900} color="primary.main">
+            <Typography variant="h4" fontWeight={900} color="primary.main" my={0.3}>
               100%
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
               sem faltas em jogos
             </Typography>
           </Card>
@@ -429,7 +485,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </Box>
 
       {/* 3. MÓDULO: MEU TIME / EQUIPE (DONO DO TIME & AMISTOSOS) */}
-      <Card sx={{ p: 2.5, mb: 3, border: '1.5px solid #0066FF', bgcolor: '#FFFFFF', borderRadius: 3.5, boxShadow: '0 2px 10px rgba(0,102,255,0.08)' }}>
+      <Card sx={{ p: 2.5, mb: 3, border: '1.5px solid #0066FF', bgcolor: 'background.paper', borderRadius: 2, boxShadow: '0 2px 10px rgba(0,102,255,0.08)' }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box display="flex" alignItems="center" gap={1}>
             <Shield size={22} color="#0066FF" />

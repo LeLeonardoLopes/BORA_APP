@@ -273,7 +273,11 @@ export const App: React.FC = () => {
 
   // FILTRAGEM DINÂMICA EM MEMÓRIA
   const partidasFiltradas = useMemo(() => {
+    if (!Array.isArray(partidas)) return [];
+
     return partidas.filter((match) => {
+      if (!match) return false;
+
       // 1. Filtro por Formato (Avulso vs Amistoso)
       if (filtroFormato !== 'Todos' && match.formatoJogo !== filtroFormato) {
         return false;
@@ -281,7 +285,7 @@ export const App: React.FC = () => {
 
       // 2. Filtro por Esporte / Modalidade
       if (filtroEsporte !== 'Todos') {
-        const matchEsporte = match.esporte.toLowerCase();
+        const matchEsporte = String(match.esporte || '').toLowerCase();
         const filtro = filtroEsporte.toLowerCase();
         if (!matchEsporte.includes(filtro.replace(' (11x11)', '').replace(' (terrão)', ''))) {
           return false;
@@ -296,7 +300,7 @@ export const App: React.FC = () => {
       // 4. Busca Textual por Bairro, Endereço ou Descrição
       if (termoBusca.trim()) {
         const busca = termoBusca.toLowerCase().trim();
-        const textoMatch = `${match.bairro} ${match.enderecoCompleto} ${match.esporte} ${match.descricao || ''}`.toLowerCase();
+        const textoMatch = `${match.bairro || ''} ${match.enderecoCompleto || ''} ${match.esporte || ''} ${match.descricao || ''}`.toLowerCase();
         if (!textoMatch.includes(busca)) {
           return false;
         }
@@ -333,7 +337,7 @@ export const App: React.FC = () => {
   const handleCriarPartida = async (novaPartida: any) => {
     const partidaFormatada = {
       ...novaPartida,
-      organizadorId: usuarioLogado.id,
+      organizadorId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101',
       isOrganizador: true,
       isConfirmado: true,
     };
@@ -355,7 +359,7 @@ export const App: React.FC = () => {
 
   const handleSolicitarVaga = async (id: string) => {
     try {
-      await api.post(`/matches/${id}/requests`, { usuarioId: usuarioLogado.id });
+      await api.post(`/matches/${id}/requests`, { usuarioId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101' });
     } catch (e) {
       console.warn('Fallback de solicitação:', e);
     }
@@ -363,16 +367,16 @@ export const App: React.FC = () => {
   };
 
   const handleMarcarAmistoso = (id: string) => {
-    if (!usuarioLogado.meuTime) {
+    if (!usuarioLogado?.meuTime) {
       setToastMensagem('Você precisa cadastrar seu time na aba Meu Perfil antes de marcar um amistoso!');
       return;
     }
     queryClient.setQueryData<any[]>(['matches', raioKm], (prev = []) =>
       prev.map((p) =>
-        p.id === id ? { ...p, timeVisitante: usuarioLogado.meuTime.nome, vagasPreenchidas: 2 } : p
+        p.id === id ? { ...p, timeVisitante: usuarioLogado?.meuTime?.nome, vagasPreenchidas: 2 } : p
       )
     );
-    setToastMensagem('Desafio de Amistoso enviado com o time ' + usuarioLogado.meuTime.nome + '!');
+    setToastMensagem('Desafio de Amistoso enviado com o time ' + (usuarioLogado?.meuTime?.nome || '') + '!');
   };
 
   const handleFinalizarPartida = (id: string) => {
@@ -392,7 +396,7 @@ export const App: React.FC = () => {
           <Toolbar sx={{ justifyContent: 'space-between' }}>
             <Box>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-                OLÁ, {usuarioLogado.nome.toUpperCase()}
+                OLÁ, {(usuarioLogado?.nome || usuarioLogado?.email?.split('@')[0] || 'ATLETA').toUpperCase()}
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: -0.5, color: '#fff', lineHeight: 1.1 }}>
                 BORA! <Box component="span" sx={{ color: 'secondary.main' }}>APP</Box>
@@ -403,7 +407,7 @@ export const App: React.FC = () => {
               {/* BOTÃO DE ALTERNÂNCIA DE TEMA (CLARO / ESCURO) */}
               <Tooltip title={isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}>
                 <IconButton 
-                  size="small"
+                  size="small" 
                   onClick={alternarTema} 
                   sx={{ 
                     color: '#fff', 
@@ -418,18 +422,18 @@ export const App: React.FC = () => {
 
               <Chip 
                 icon={<Star size={13} fill="#000" color="#000" />} 
-                label={Number(usuarioLogado.notaMedia || 5).toFixed(2)}
+                label={Number(usuarioLogado?.notaMedia || 5).toFixed(2)}
                 sx={{ bgcolor: 'secondary.main', color: '#000', fontWeight: 800, height: 26 }}
               />
               
               <Avatar 
-                src={usuarioLogado.fotoUrl || undefined}
+                src={usuarioLogado?.fotoUrl || undefined}
                 sx={{ 
                   width: 36, 
                   height: 36, 
                   bgcolor: '#D9D9D9', 
                   color: '#0066FF', 
-                  fontWeight: 900,
+                  fontWeight: 900, 
                   border: '2px solid #FFD700', 
                   cursor: 'pointer' 
                 }}
@@ -547,35 +551,51 @@ export const App: React.FC = () => {
                         </IconButton>
                       </Box>
                     </Box>
-                    <Slider
-                      value={raioKm}
-                      min={2}
-                      max={25}
-                      step={1}
-                      marks={[
-                        { value: 2, label: '2km' },
-                        { value: 10, label: '10km' },
-                        { value: 15, label: 'Franca' },
-                        { value: 25, label: 'Toda Cidade' },
-                      ]}
-                      valueLabelDisplay="auto"
-                      onChange={(_, val) => setRaioKm(val as number)}
-                      sx={{ color: 'primary.main', py: 1 }}
-                    />
+                    <Box px={1.5} pt={0.5} pb={1}>
+                      <Slider
+                        value={raioKm}
+                        min={2}
+                        max={25}
+                        step={1}
+                        marks={[
+                          { value: 2, label: '2km' },
+                          { value: 10, label: '10km' },
+                          { value: 15, label: 'Franca' },
+                          { value: 25, label: 'Toda Cidade' },
+                        ]}
+                        valueLabelDisplay="auto"
+                        onChange={(_, val) => setRaioKm(val as number)}
+                        sx={{
+                          color: 'primary.main',
+                          py: 1,
+                          width: '100%',
+                          '& .MuiSlider-markLabel': {
+                            fontSize: '0.70rem',
+                            fontWeight: 700,
+                          },
+                          '& .MuiSlider-markLabel[data-index="3"]': {
+                            transform: 'translateX(-90%)',
+                          },
+                          '& .MuiSlider-markLabel[data-index="0"]': {
+                            transform: 'translateX(5%)',
+                          }
+                        }}
+                      />
+                    </Box>
                   </Box>
 
                   {/* 1. FILTRO POR FORMATO (TODOS / AMISTOSO / AVULSO) COM CONTROLES */}
                   <Box>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.8}>
                       <Typography variant="caption" color="text.secondary" fontWeight={800}>
                         Formato da Partida:
                       </Typography>
-                      <Box display="flex" gap={0.3}>
-                        <IconButton size="small" onClick={() => rolarHorizontal(scrollFormatosRef, 'esquerda')} sx={{ p: 0.3, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
-                          <ChevronLeft size={14} />
+                      <Box display="flex" gap={0.5}>
+                        <IconButton size="small" onClick={() => rolarHorizontal(scrollFormatosRef, 'esquerda')} sx={{ p: 0.4, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
+                          <ChevronLeft size={15} />
                         </IconButton>
-                        <IconButton size="small" onClick={() => rolarHorizontal(scrollFormatosRef, 'direita')} sx={{ p: 0.3, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
-                          <ChevronRight size={14} />
+                        <IconButton size="small" onClick={() => rolarHorizontal(scrollFormatosRef, 'direita')} sx={{ p: 0.4, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
+                          <ChevronRight size={15} />
                         </IconButton>
                       </Box>
                     </Box>
@@ -586,11 +606,11 @@ export const App: React.FC = () => {
                         display: 'flex', 
                         gap: 1, 
                         overflowX: 'auto', 
-                        pb: 1,
+                        pb: 0.5,
+                        px: 0.2,
                         scrollBehavior: 'smooth',
-                        '&::-webkit-scrollbar': { height: '5px' },
-                        '&::-webkit-scrollbar-track': { bgcolor: isDark ? '#1E293B' : '#F8FAFC', borderRadius: '4px' },
-                        '&::-webkit-scrollbar-thumb': { bgcolor: isDark ? '#475569' : '#CBD5E1', borderRadius: '4px', '&:hover': { bgcolor: '#0066FF' } },
+                        scrollbarWidth: 'none',
+                        '&::-webkit-scrollbar': { display: 'none' },
                       }}
                     >
                       <Chip
@@ -603,7 +623,7 @@ export const App: React.FC = () => {
                           color: filtroFormato === 'Todos' ? '#FFFFFF' : 'text.primary',
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
-                          px: 0.5
+                          px: 0.8
                         }}
                       />
                       <Chip
@@ -618,7 +638,7 @@ export const App: React.FC = () => {
                           border: isDark ? '1.5px solid #2563EB' : '1.5px solid #BFDBFE',
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
-                          px: 0.5
+                          px: 0.8
                         }}
                       />
                       <Chip
@@ -633,7 +653,7 @@ export const App: React.FC = () => {
                           border: isDark ? '1.5px solid #059669' : '1.5px solid #BBF7D0',
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
-                          px: 0.5
+                          px: 0.8
                         }}
                       />
                     </Box>
@@ -641,16 +661,16 @@ export const App: React.FC = () => {
 
                   {/* 2. FILTRO POR MODALIDADE ESPORTIVA COM BARRA VISÍVEL E SETAS */}
                   <Box>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.8}>
                       <Typography variant="caption" color="text.secondary" fontWeight={800}>
                         Modalidade Esportiva:
                       </Typography>
-                      <Box display="flex" gap={0.3}>
-                        <IconButton size="small" onClick={() => rolarHorizontal(scrollModalidadesRef, 'esquerda')} sx={{ p: 0.3, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
-                          <ChevronLeft size={14} />
+                      <Box display="flex" gap={0.5}>
+                        <IconButton size="small" onClick={() => rolarHorizontal(scrollModalidadesRef, 'esquerda')} sx={{ p: 0.4, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
+                          <ChevronLeft size={15} />
                         </IconButton>
-                        <IconButton size="small" onClick={() => rolarHorizontal(scrollModalidadesRef, 'direita')} sx={{ p: 0.3, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
-                          <ChevronRight size={14} />
+                        <IconButton size="small" onClick={() => rolarHorizontal(scrollModalidadesRef, 'direita')} sx={{ p: 0.4, bgcolor: isDark ? '#1E293B' : '#F1F5F9' }}>
+                          <ChevronRight size={15} />
                         </IconButton>
                       </Box>
                     </Box>
@@ -661,11 +681,11 @@ export const App: React.FC = () => {
                         display: 'flex', 
                         gap: 1, 
                         overflowX: 'auto', 
-                        pb: 1,
+                        pb: 0.5,
+                        px: 0.2,
                         scrollBehavior: 'smooth',
-                        '&::-webkit-scrollbar': { height: '6px' },
-                        '&::-webkit-scrollbar-track': { bgcolor: isDark ? '#1E293B' : '#F1F5F9', borderRadius: '4px' },
-                        '&::-webkit-scrollbar-thumb': { bgcolor: isDark ? '#475569' : '#94A3B8', borderRadius: '4px', '&:hover': { bgcolor: '#0066FF' } },
+                        scrollbarWidth: 'none',
+                        '&::-webkit-scrollbar': { display: 'none' },
                       }}
                     >
                       {MODALIDADES_FILTRO.map((modalidade) => {
@@ -837,7 +857,7 @@ export const App: React.FC = () => {
                 open={modalCriarAberto}
                 onClose={() => setModalCriarAberto(false)}
                 onSuccess={handleCriarPartida}
-                meuTime={usuarioLogado.meuTime}
+                meuTime={usuarioLogado?.meuTime}
               />
             </>
           )}

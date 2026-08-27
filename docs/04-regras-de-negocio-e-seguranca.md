@@ -47,12 +47,37 @@
 
 ---
 
+### RN05 — Moderação Automática por Reputação (Estilo Uber)
+* **Definição:** Usuários com 5 ou mais avaliações acumuladas cuja nota média for inferior a 2.00 estrelas são suspensos automaticamente pelo sistema.
+* **Implementação Técnica:**
+  ```typescript
+  // Trecho de validação e recálculo
+  if (totalAvaliacoes >= 5 && novaMedia < 2.00) {
+    usuario.suspenderPorMaConduta();
+  }
+  ```
+
+### RN06 — Espaço Seguro & Exclusividade Feminina (Combate à Violência Contra a Mulher)
+* **Definição:**
+  1. Partidas criadas com `filtro_genero = 'Exclusivo_Feminino'` são **completamente invisíveis no mapa e nas buscas para usuários cadastrados como do gênero masculino**.
+  2. Usuários masculinos são estritamente bloqueados pelo backend de solicitar vagas, visualizar dados ou enviar mensagens no chat de partidas femininas.
+* **Implementação Técnica:**
+  ```typescript
+  // Cláusula de proteção espacial no PostGIS
+  AND (
+      p.filtro_genero = 'Misto'
+      OR (p.filtro_genero = 'Exclusivo_Feminino' AND :genero_usuario = 'Feminino')
+  )
+  ```
+
+---
+
 ## 2. Moderação Automática e Sistema de Reputação (UC05)
 
 * **Intervalo de Avaliações:** Notas inteiras de 1 a 5 estrelas concedidas por participantes após a conclusão da partida.
 * **Cálculo da Média Ponderada:**
   $$\text{nota\_media} = \frac{\sum \text{notas}}{\text{total\_avaliacoes}}$$
-* **Gatilho de Suspensão Automática:**
+* **Gatilho de Suspensão Automática (RN05):**
   * Se $\text{total\_avaliacoes} \ge 5$ e $\text{nota\_media} < 2.00$:
   * O sistema altera automaticamente o `status_usuario` para `Suspenso`.
   * Usuários no estado `Suspenso` têm bloqueio imediato para criação de partidas e solicitações de novas vagas.
@@ -61,12 +86,14 @@
 
 ## 3. Segurança em Camadas (Defense in Depth)
 
-1. **Proteção Anti-IDOR:**
+1. **Trava Dupla de Identidade:**
+   * Validação matemática de CPF via algoritmo Módulo 11 (dígitos verificadores).
+   * Confirmação de e-mail através de código OTP de 6 dígitos com validade de 10 minutos.
+2. **Proteção Anti-IDOR:**
    * Qualquer operação de mutação (aceitar vaga, editar partida) valida se o ID do usuário autenticado no token JWT corresponde ao proprietário do recurso.
-2. **Criptografia com Salt:**
-   * Senhas armazenadas com hash `bcrypt` (12 rounds) ou `argon2id`.
-3. **Proteção de Dados em Trânsito:**
-   * Comunicação estritamente via HTTPS / TLS 1.3.
-4. **Rate Limiting:**
-   * 5 tentativas de login por IP/minuto.
-   * 100 requisições/minuto nas rotas de mapa para evitar scraping massivo de dados.
+3. **Criptografia com Salt:**
+   * Senhas armazenadas com hash `bcrypt` (12 rounds).
+4. **Proteção de Dados em Trânsito:**
+   * Comunicação estritamente via HTTPS / TLS 1.3 e WebSockets seguros (WSS).
+5. **Auditoria LGPD:**
+   * Trilha imutável de eventos gravando estado anterior, novo e campos alterados em JSONB (`auditoria_log`).

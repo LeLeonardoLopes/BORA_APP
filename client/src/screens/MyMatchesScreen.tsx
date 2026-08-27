@@ -177,14 +177,14 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
         sx={{
           mb: 2.5,
           bgcolor: '#FFFFFF',
-          borderRadius: 3,
+          borderRadius: 2,
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
           p: 0.5,
           '& .MuiTab-root': {
             fontWeight: 800,
             textTransform: 'none',
             fontSize: '0.88rem',
-            borderRadius: 2.5,
+            borderRadius: 1.5,
           },
           '& .Mui-selected': {
             bgcolor: 'primary.main',
@@ -218,7 +218,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
               <CircularProgress size={32} />
             </Box>
           ) : solicitacoes.length === 0 ? (
-            <Card sx={{ p: 4, textAlign: 'center', borderRadius: 3, bgcolor: '#F8FAFC' }}>
+            <Card sx={{ p: 4, textAlign: 'center', borderRadius: 2, bgcolor: '#F8FAFC' }}>
               <Inbox size={36} color="#94A3B8" style={{ marginBottom: 8 }} />
               <Typography variant="subtitle2" fontWeight={800} color="text.secondary">
                 Nenhuma solicitação no momento.
@@ -238,7 +238,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
                   <Card 
                     key={sol.id} 
                     sx={{ 
-                      borderRadius: 3.5, 
+                      borderRadius: 2, 
                       p: 2, 
                       bgcolor: '#FFFFFF',
                       border: pendente ? '1.5px solid #0066FF' : '1px solid #E2E8F0',
@@ -293,7 +293,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
                           ⚽ Jogo: {sol.partidaEsporte}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          📍 {sol.partidaBairro}, Franca/SP • {new Date(sol.partidaDataHora).toLocaleDateString('pt-BR')}
+                          📍 {sol.partidaBairro || 'Franca'}, Franca/SP • {sol.partidaDataHora ? new Date(sol.partidaDataHora).toLocaleDateString('pt-BR') : 'Data a definir'}
                         </Typography>
                         {sol.partidaDescricao && (
                           <Typography variant="caption" color="text.secondary" display="block" sx={{ fontStyle: 'italic', mt: 0.3 }}>
@@ -349,7 +349,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
       {abaInterna === 1 && (
         <Box display="flex" flexDirection="column" gap={2}>
           {minhasPartidas.length === 0 ? (
-            <Card sx={{ p: 4, textAlign: 'center', borderRadius: 3, bgcolor: '#F8FAFC' }}>
+            <Card sx={{ p: 4, textAlign: 'center', borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="subtitle2" fontWeight={800} color="text.secondary">
                 Você não possui partidas ativas no momento.
               </Typography>
@@ -359,7 +359,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
             </Card>
           ) : (
             minhasPartidas.map((partida) => (
-              <Card key={partida.id} sx={{ borderRadius: 3.5, p: 2, bgcolor: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid #E2E8F0' }}>
+              <Card key={partida.id} sx={{ borderRadius: 2, p: 2, bgcolor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ p: '0 !important' }}>
                   <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                     <Box>
@@ -379,12 +379,12 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
                   </Box>
 
                   {partida.descricao && (
-                    <Typography variant="body2" color="text.secondary" mb={1.5} sx={{ fontStyle: 'italic', bgcolor: '#F8FAFC', p: 1, borderRadius: 2 }}>
+                    <Typography variant="body2" color="text.secondary" mb={1.5} sx={{ fontStyle: 'italic', bgcolor: 'background.default', p: 1, borderRadius: 1.5 }}>
                       "{partida.descricao}"
                     </Typography>
                   )}
 
-                  <Box display="flex" justifyContent="space-between" alignItems="center" pt={1.2} borderTop="1px solid #F1F5F9">
+                  <Box display="flex" justifyContent="space-between" alignItems="center" pt={1.2} borderTop="1px solid" borderColor="divider">
                     <Chip 
                       icon={<ShieldCheck size={14} color="#16A34A" />}
                       label="Organizador" 

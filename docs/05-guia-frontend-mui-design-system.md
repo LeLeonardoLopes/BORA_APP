@@ -1,4 +1,4 @@
-﻿# 05 — Guia Frontend com Material UI (MUI) e Telas Hi-Fi — Bora! App
+# 05 — Guia Frontend com Material UI (MUI) e Telas Hi-Fi — Bora! App
 
 ## 1. Identidade Visual e Tema Personalizado MUI
 
@@ -51,13 +51,13 @@ export const boraTheme = createTheme({
 
 | Tela | Componentes MUI Utilizados | Descrição Visual e Comportamento |
 | :--- | :--- | :--- |
-| **Splash Screen** | `Box`, `Typography`, `Fade` | Fundo azul sólido com o logotipo estilizado centralizado (Bola + Luva + Mapa). |
-| **Login Screen** | `Card`, `TextField`, `Button`, `Divider` | Inputs com bordas arredondadas, botão amarelo "LOGIN" e botões sociais Google/Apple. |
-| **Cadastro** | `TextField`, `Button`, `Checkbox`, `Typography` | Formulário limpo com validação de termos e política de privacidade. |
-| **Home Dashboard** | `AppBar`, `Card`, `Avatar`, `Button`, `Typography` | Saudação em destaque ("OLÁ, MARIA!"), Card de localização com GPS e botões de ação rápida. |
-| **Busca & Mapa** | `Slider`, `Chip`, `TextField`, `IconButton` | Seletor de raio deslizante (0 a 5 km com indicador visual) e filtro por tags de modalidades esportivas. |
-| **Detalhes da Partida** | `Card`, `Badge`, `Chip`, `Button`, `Dialog` | Exibe vagas restantes em tempo real, organizador e botão "Solicitar Vaga". |
-| **Avaliação Pós-Jogo** | `Rating`, `TextField`, `Button`, `Snackbar` | Componente de estrelas (1 a 5), campo opcional de comentário e confirmação visual. |
+| **Splash & Login** | `Box`, `Container`, `TextField`, `Button`, `Typography` | Fundo azul sólido (`#0066FF`), logo 3D Bora! centralizado com contorno amarelo (`#FFD700`), campos com inputs brancos e botões sociais Google/Apple em destaque. |
+| **Cadastro & OTP** | `TextField`, `Select`, `MenuItem`, `Button`, `Alert`, `Stack` | Formulário com Nome, CPF formatado, Seletor de Gênero (Feminino/Masculino/Outro - RN06), E-mail, Senha com medidor de requisitos e tela de confirmação OTP de 6 dígitos. |
+| **Home Dashboard** | `AppBar`, `Card`, `Avatar`, `Button`, `Typography` | Saudação em destaque, Card de localização com GPS, clima e botões de ação rápida. |
+| **Busca & Mapa (RN06)** | `Slider`, `Chip`, `TextField`, `IconButton`, `Leaflet` | Mapa interativo com raio deslizante (1 a 30 km), blindagem para usuárias mulheres (RN06) e exibição da nota em estrelas do organizador. |
+| **Detalhes & Painel** | `Card`, `Badge`, `Chip`, `Button`, `Dialog` | Exibe vagas, formato (Avulso vs Amistoso), taxas (RN04) e painel estilo Uber para aprovação de atletas. |
+| **Chat em Tempo Real** | `Paper`, `List`, `ListItem`, `TextField`, `IconButton` | Sala de chat instantânea via WebSocket com participantes confirmados. |
+| **Avaliação Pós-Jogo** | `Rating`, `TextField`, `Button`, `Snackbar` | Componente de estrelas (1 a 5), feedback de conduta/pontualidade e recálculo dinâmico (RN05). |
 
 ---
 
@@ -65,15 +65,16 @@ export const boraTheme = createTheme({
 
 ```text
 client/src/
-├── assets/                  # Logos, ícones esportivos e ilustrações
+├── assets/                  # Logos, bora_modelo.jpg, ícones esportivos
 ├── components/              # Componentes reutilizáveis
-│   ├── MatchCard.tsx        # Card de partida com badges de esporte e vagas
-│   ├── RadiusSlider.tsx     # Slider customizado MUI (0 a 5 km)
-│   ├── RatingStars.tsx      # Componente de 1 a 5 estrelas
-│   └── TopBar.tsx           # Barra superior com status do atleta
-├── contexts/                # AuthContext (Sessão JWT) e LocationContext (GPS)
-├── screens/                 # As 8 telas principais
-├── services/                # api.ts (Axios com interceptors)
-├── theme/                   # boraTheme.ts
-└── App.tsx                  # ThemeProvider + Router
+│   ├── BoraLogoSVG.tsx      # Logo Bora! 3D vetorizada com contorno amarelo
+│   ├── MatchCard.tsx        # Card de partida com badges de esporte, gênero e vagas
+│   ├── MatchChatModal.tsx   # Modal de chat da partida em tempo real (WebSocket)
+│   ├── SocialAuthModal.tsx  # Modal de autenticação Google / Apple
+│   ├── FullMapExplorer.tsx  # Mapa interativo com Leaflet e filtros espaciais
+│   └── InteractiveMapPicker.tsx # Seletor de coordenadas GPS
+├── screens/                 # Telas principais (AuthScreen, MyMatches, Profile, Rating)
+├── services/                # api.ts, cepService, geocodingService, weatherService
+├── theme/                   # boraTheme.ts (Paleta oficial Azul #0066FF e Amarelo #FFD700)
+└── App.tsx                  # ThemeProvider MUI + Router
 ```

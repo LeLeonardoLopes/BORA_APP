@@ -1,4 +1,4 @@
-﻿# 07 — Guia de Testes Automatizados e Cobertura de Regras — Bora! App
+# 07 — Guia de Testes Automatizados e Cobertura de Regras — Bora! App
 
 Este documento centraliza toda a estratégia de testes, cenários de validação e comandos de execução para o **Bora! App**.
 
@@ -50,7 +50,20 @@ npm test -- --coverage
 
 ## 4. Integração Contínua (CI/CD)
 
-A esteira de integração contínua está configurada em [.github/workflows/ci.yml](file:///C:/Users/Devs-02/Desktop/BORA%20APP/BORA%20APP/.github/workflows/ci.yml) e executa automaticamente:
-* Checagem de tipos estrita do TypeScript (	sc --noEmit) no server e no client.
+A esteira de integração contínua está configurada em [.github/workflows/ci.yml](file:///C:/Users/Devs-02/Documents/BORA_APP/.github/workflows/ci.yml) e executa automaticamente:
+* Checagem de tipos estrita do TypeScript (`tsc --noEmit`) no server e no client.
 * Execução dos testes automatizados com Jest.
 * Build do pacote frontend com Vite.
+
+---
+
+## 5. Checklist de Homologação Manual E2E (Status Real)
+
+### ✅ Homologado (Etapas A e B):
+* [x] **Etapa A: Autenticação, Tema & Perfil:** Login/cadastro com OTP, tema Claro/Escuro dinâmico e gestão do perfil/time (*TIME F.C.*).
+* [x] **Etapa B: Explorador & Geolocalização:** Filtro de raio (2 a 25km), chips de modalidades, minimapa de Franca/SP e convites formatados no WhatsApp.
+
+### ⏳ Próxima Sessão (Marco de Retomada):
+* [ ] **Etapa C: Gestão de Vagas, Solicitação & Chat:** Solicitação, aprovação de vagas e mensageria em tempo real.
+* [ ] **Etapa D: Encerramento & Avaliação 360°:** Finalização de partida e feed de reputação estilo Uber.
+* [ ] **Google Maps API:** Configuração da chave `VITE_GOOGLE_MAPS_API_KEY` para substituição do OpenStreetMap.

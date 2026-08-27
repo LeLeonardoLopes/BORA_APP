@@ -15,7 +15,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  useTheme
 } from '@mui/material';
 import { 
   MapPin, 
@@ -30,7 +31,8 @@ import {
   Clock,
   Flag,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from 'lucide-react';
 import { obterClimaFranca, PrevisaoClima } from '../services/weatherService';
 import { MatchChatModal } from './MatchChatModal';
@@ -54,6 +56,8 @@ export interface MatchCardProps {
   isConfirmado?: boolean;
   formatoJogo?: 'Avulso' | 'Amistoso_Times';
   tipoLocal?: 'Publica' | 'Privada';
+  filtroGenero?: string;
+  organizadorNota?: number;
   timeMandante?: string;
   timeVisitante?: string;
   taxaCampo?: number;
@@ -83,6 +87,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   maxVagas,
   statusPartida = 'Publicada',
   organizadorId,
+  organizadorNota = 5.0,
+  filtroGenero = 'Misto',
   isOrganizador = false,
   isConfirmado = false,
   formatoJogo = 'Avulso',
@@ -97,6 +103,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   onMarcarAmistoso,
   onFinalizarPartida,
 }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const isAmistoso = formatoJogo === 'Amistoso_Times';
   const vagasRestantes = maxVagas - vagasPreenchidas;
   const isLotado = isAmistoso ? Boolean(timeVisitante) : vagasRestantes <= 0;
@@ -122,31 +131,44 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   const openStreetMapEmbed = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005}%2C${lat - 0.005}%2C${lng + 0.005}%2C${lat + 0.005}&layer=mapnik&marker=${lat}%2C${lng}`;
 
-  const dataFormatada = new Date(dataHora).toLocaleString('pt-BR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  let dataFormatada = 'Data a definir';
+  try {
+    const d = new Date(dataHora);
+    if (!isNaN(d.getTime())) {
+      dataFormatada = d.toLocaleString('pt-BR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  } catch {
+    dataFormatada = 'Data a definir';
+  }
 
   // Gerador de Convite para WhatsApp
   const handleCompartilharWhatsApp = () => {
+    const baseUrl = window.location.origin || 'http://localhost:5173';
     const textoMensagem = isAmistoso
-      ? `🏆 *DESAFIO DE AMISTOSO NO BORA! APP*\n` +
+      ? `🏆 *DESAFIO DE AMISTOSO — BORA! APP*\n\n` +
+        `Fala galera! Nosso time está marcando um amistoso:\n\n` +
         `⚽ *Modalidade:* ${esporte}\n` +
-        `⏱️ *Duração:* ${duracaoMinutos} minutos\n` +
-        `🛡️ *Mandante:* ${timeMandante || 'Equipe de Franca'}\n` +
+        `🛡️ *Time Mandante:* ${timeMandante || 'Equipe de Franca'}\n` +
+        `📅 *Data e Hora:* ${dataFormatada}\n` +
+        `⏱️ *Duração:* ${duracaoMinutos} min\n` +
         `📍 *Local:* ${bairro}, Franca/SP\n` +
-        `⏰ *Horário:* ${dataFormatada}\n` +
-        `👉 Aceite o desafio no Bora! App: http://localhost:5173`
-      : `⚽ *BORA PRO RACHA! — BORA! APP*\n` +
-        `🏆 *Jogo:* ${esporte}\n` +
-        `⏱️ *Duração:* ${duracaoMinutos} minutos\n` +
+        (Number(valorPorEquipe) > 0 ? `💰 *Rateio por Equipe:* R$ ${Number(valorPorEquipe).toFixed(2)}\n\n` : `🎉 *Jogo 100% Gratuito*\n\n`) +
+        `👉 Aceite o desafio no Bora! App:\n${baseUrl}`
+      : `⚽ *CONVITE PRO JOGO — BORA! APP*\n\n` +
+        `Fala galera! Tem jogo marcado no Bora! App e abrimos vagas:\n\n` +
+        `🏆 *Modalidade:* ${esporte}\n` +
+        `📅 *Data e Hora:* ${dataFormatada}\n` +
+        `⏱️ *Duração:* ${duracaoMinutos} min\n` +
         `📍 *Local:* ${bairro}, Franca/SP\n` +
-        `⏰ *Horário:* ${dataFormatada}\n` +
-        `🎟️ *Vagas restantes:* ${vagasRestantes} de ${maxVagas}\n` +
-        `👉 Garanta sua vaga no Bora! App: http://localhost:5173`;
+        `🎟️ *Vagas Disponíveis:* ${vagasRestantes} de ${maxVagas}\n` +
+        (tipoLocal === 'Publica' ? `🎉 *100% Gratuito*\n\n` : `💰 *Rateio da Quadra:* R$ ${((taxaCampo || 0) / (maxVagas || 1)).toFixed(2)} por atleta\n\n`) +
+        `👉 Garanta sua vaga no Bora! App:\n${baseUrl}`;
 
     const zapUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensagem)}`;
     window.open(zapUrl, '_blank');
@@ -181,18 +203,19 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         sx={{ 
           mb: 2, 
           overflow: 'hidden',
+          bgcolor: 'background.paper',
           border: isFinalizada
-            ? '1.5px solid #64748B'
+            ? (isDark ? '1px solid #475569' : '1.5px solid #64748B')
             : isAmistoso
-            ? '1.5px solid #0066FF'
-            : (isConfirmado ? '1.5px solid #10B981' : '1px solid rgba(226, 232, 240, 0.9)'),
-          borderRadius: 3,
-          boxShadow: '0 3px 12px rgba(0,0,0,0.04)',
+            ? (isDark ? '1.5px solid #2563EB' : '1.5px solid #0066FF')
+            : (isConfirmado ? '1.5px solid #10B981' : (isDark ? '1px solid #334155' : '1px solid rgba(226, 232, 240, 0.9)')),
+          borderRadius: 1.5,
+          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 3px 12px rgba(0,0,0,0.04)',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           opacity: isFinalizada ? 0.92 : 1,
           '&:hover': {
             transform: 'translateY(-1px)',
-            boxShadow: '0 6px 18px rgba(0,102,255,0.1)'
+            boxShadow: isDark ? '0 8px 30px rgba(0,0,0,0.7)' : '0 6px 18px rgba(0,102,255,0.1)'
           }
         }}
       >
@@ -200,31 +223,34 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         {isAmistoso ? (
           <Box 
             sx={{ 
-              bgcolor: isFinalizada ? '#334155' : 'primary.main', 
+              bgcolor: isFinalizada ? (isDark ? '#1E293B' : '#334155') : (isDark ? '#1E3A8A' : 'primary.main'), 
               color: '#fff', 
-              py: 0.6, 
-              px: 1.8, 
+              py: 0.9, 
+              px: 2.4, 
               display: 'flex', 
               justifyContent: 'space-between',
               alignItems: 'center', 
-              fontSize: '0.74rem', 
+              fontSize: '0.75rem', 
               fontWeight: 800 
             }}
           >
-            <Box display="flex" alignItems="center" gap={0.6}>
-              <Shield size={14} color="#FFD700" /> AMISTOSO ENTRE TIMES
-            </Box>
             <Box display="flex" alignItems="center" gap={0.8}>
+              <Shield size={15} color="#FFD700" />
+              <Typography variant="caption" sx={{ fontWeight: 800, color: '#FFFFFF', fontSize: '0.72rem', letterSpacing: '0.02em' }}>
+                AMISTOSO ENTRE TIMES
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
               <Chip
                 size="small"
                 label={tipoLocal === 'Publica' ? 'Campo Público' : 'Arena Privada'}
-                sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 20, fontSize: '0.68rem' }}
+                sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 21, fontSize: '0.68rem', px: 0.5 }}
               />
               <Tooltip title="Convidar no WhatsApp">
                 <IconButton 
                   size="small" 
                   onClick={handleCompartilharWhatsApp} 
-                  sx={{ color: '#FFD700', p: 0.2, bgcolor: 'rgba(255,255,255,0.15)' }}
+                  sx={{ color: '#FFD700', p: 0.5, bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' } }}
                 >
                   <Share2 size={13} />
                 </IconButton>
@@ -234,47 +260,48 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         ) : (
           <Box 
             sx={{ 
-              bgcolor: isFinalizada ? '#F1F5F9' : '#F8FAFC', 
-              py: 0.5, 
-              px: 1.8, 
+              bgcolor: isDark ? '#1E293B' : (isFinalizada ? '#F1F5F9' : '#F8FAFC'), 
+              py: 0.8, 
+              px: 2.4, 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center', 
-              borderBottom: '1px solid #E2E8F0' 
+              borderBottom: isDark ? '1px solid #334155' : '1px solid #E2E8F0' 
             }}
           >
-            <Box display="flex" alignItems="center" gap={0.6}>
-              <Users size={13} color={isFinalizada ? '#64748B' : '#16A34A'} />
-              <Typography variant="caption" sx={{ fontWeight: 800, color: isFinalizada ? '#475569' : '#166534', fontSize: '0.70rem' }}>
+            <Box display="flex" alignItems="center" gap={0.8}>
+              <Users size={14} color={isDark ? '#4ADE80' : (isFinalizada ? '#64748B' : '#16A34A')} />
+              <Typography variant="caption" sx={{ fontWeight: 800, color: isDark ? '#86EFAC' : (isFinalizada ? '#475569' : '#166534'), fontSize: '0.72rem', letterSpacing: '0.02em' }}>
                 PARTIDA ABERTA (AVULSO)
               </Typography>
             </Box>
-            <Box display="flex" alignItems="center" gap={0.8}>
+            <Box display="flex" alignItems="center" gap={1}>
               <Chip
                 size="small"
                 label={tipoLocal === 'Publica' ? '100% Gratuito' : 'Aluguel Privado'}
                 sx={{
-                  bgcolor: tipoLocal === 'Publica' ? '#DCFCE7' : '#EFF6FF',
-                  color: tipoLocal === 'Publica' ? '#166534' : 'primary.main',
+                  bgcolor: tipoLocal === 'Publica' ? (isDark ? '#064E3B' : '#DCFCE7') : (isDark ? '#1E3A5F' : '#EFF6FF'),
+                  color: tipoLocal === 'Publica' ? (isDark ? '#86EFAC' : '#166534') : (isDark ? '#93C5FD' : 'primary.main'),
                   fontWeight: 800,
-                  fontSize: '0.65rem',
-                  height: 19
+                  fontSize: '0.68rem',
+                  height: 21,
+                  px: 0.5
                 }}
               />
               <Tooltip title="Convidar no WhatsApp">
                 <IconButton 
                   size="small" 
                   onClick={handleCompartilharWhatsApp} 
-                  sx={{ color: '#16A34A', p: 0.2, bgcolor: '#DCFCE7' }}
+                  sx={{ color: isDark ? '#4ADE80' : '#16A34A', p: 0.5, bgcolor: isDark ? 'rgba(74,222,128,0.15)' : '#DCFCE7', '&:hover': { bgcolor: isDark ? 'rgba(74,222,128,0.25)' : '#BBF7D0' } }}
                 >
-                  <Share2 size={12} />
+                  <Share2 size={13} />
                 </IconButton>
               </Tooltip>
             </Box>
           </Box>
         )}
 
-        <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
+        <CardContent sx={{ p: 2.2, '&:last-child': { pb: 2.2 } }}>
           
           {/* Título da Partida / Confronto */}
           <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={0.8}>
@@ -289,8 +316,37 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               )}
             </Box>
 
-            {/* Badges de Status e Vagas */}
-            <Box display="flex" gap={0.6} alignItems="center">
+            {/* Badges de Status, Vagas e Gênero */}
+            <Box display="flex" gap={0.6} alignItems="center" flexWrap="wrap">
+              {filtroGenero === 'Exclusivo_Feminino' && (
+                <Chip
+                  icon={<ShieldCheck size={12} color="#FFFFFF" />}
+                  label="Espaço Seguro (RN06)"
+                  size="small"
+                  sx={{
+                    background: 'linear-gradient(135deg, #9333EA 0%, #6B21A8 100%)',
+                    color: '#FFFFFF',
+                    fontWeight: 900,
+                    fontSize: '0.66rem',
+                    height: 21,
+                    boxShadow: '0 2px 8px rgba(147, 51, 234, 0.35)'
+                  }}
+                />
+              )}
+              {organizadorNota && (
+                <Chip
+                  icon={<Star size={11} color="#FFD700" fill="#FFD700" />}
+                  label={`${Number(organizadorNota).toFixed(1)}`}
+                  size="small"
+                  sx={{
+                    bgcolor: isDark ? '#0A0E17' : '#0F172A',
+                    color: '#FFD700',
+                    fontWeight: 900,
+                    fontSize: '0.66rem',
+                    height: 21
+                  }}
+                />
+              )}
               {statusLocal === 'Finalizada' ? (
                 <Chip
                   icon={<CheckCircle2 size={12} color="#FFFFFF" />}
@@ -307,7 +363,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 />
               ) : (
                 <Chip
-                  label={vagasRestantes > 0 ? `${vagasRestantes} vagas restantes` : 'Partida Lotada'}
+                  label={vagasRestantes > 0 ? `${vagasRestantes} vagas` : 'Lotada'}
                   color={vagasRestantes > 0 ? 'secondary' : 'default'}
                   size="small"
                   sx={{ fontWeight: 800, color: vagasRestantes > 0 ? '#000' : 'inherit', fontSize: '0.68rem', height: 21 }}
@@ -319,29 +375,30 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           {/* Data, Duração Estimada, Bairro e Clima */}
           <Box display="flex" flexWrap="wrap" gap={0.8} alignItems="center" mb={1.2}>
             <Box display="flex" alignItems="center" gap={0.4}>
-              <Calendar size={13} color="#0066FF" />
+              <Calendar size={13} color={isDark ? '#60A5FA' : '#0066FF'} />
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
                 {dataFormatada}
               </Typography>
             </Box>
 
-            {/* CHIP COM A DURAÇÃO ESTIMADA (Fase 3 Requisito) */}
+            {/* CHIP COM A DURAÇÃO ESTIMADA (Sem duplicar ícones) */}
             <Chip
-              icon={<Clock size={12} color="#0066FF" style={{ marginLeft: 4 }} />}
-              label={`⏱️ ${duracaoMinutos} min`}
+              icon={<Clock size={12} color={isDark ? '#60A5FA' : '#0066FF'} />}
+              label={`${duracaoMinutos} min`}
               size="small"
               sx={{
-                bgcolor: '#EFF6FF',
-                color: 'primary.main',
+                bgcolor: isDark ? '#1E3A5F' : '#EFF6FF',
+                color: isDark ? '#93C5FD' : 'primary.main',
                 fontWeight: 800,
                 fontSize: '0.68rem',
                 height: 20,
-                border: '1px solid #BFDBFE'
+                border: isDark ? '1px solid #2563EB' : '1px solid #BFDBFE',
+                px: 0.3
               }}
             />
 
             <Box display="flex" alignItems="center" gap={0.4}>
-              <MapPin size={13} color="#0066FF" />
+              <MapPin size={13} color={isDark ? '#60A5FA' : '#0066FF'} />
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
                 {bairro}, Franca/SP
               </Typography>
@@ -350,24 +407,24 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             {/* PREVISÃO DO TEMPO REAL COMPACTA */}
             {clima && (
               <Chip
-                icon={<span style={{ fontSize: '11px', marginLeft: '4px' }}>{clima.icone}</span>}
+                icon={<span style={{ fontSize: '11px', marginLeft: '3px' }}>{clima.icone}</span>}
                 label={`${clima.temperatura}°C • ${clima.condicao}`}
                 size="small"
                 sx={{
-                  bgcolor: clima.alertaChuva ? '#FEE2E2' : '#FEF3C7',
-                  color: clima.alertaChuva ? '#991B1B' : '#92400E',
+                  bgcolor: clima.alertaChuva ? (isDark ? '#7F1D1D' : '#FEE2E2') : (isDark ? '#78350F' : '#FEF3C7'),
+                  color: clima.alertaChuva ? (isDark ? '#FCA5A5' : '#991B1B') : (isDark ? '#FDE68A' : '#92400E'),
                   fontWeight: 800,
                   fontSize: '0.65rem',
                   height: 20,
-                  border: clima.alertaChuva ? '1px solid #FCA5A5' : '1px solid #FDE68A',
-                  px: 0.2
+                  border: clima.alertaChuva ? (isDark ? '1px solid #991B1B' : '1px solid #FCA5A5') : (isDark ? '1px solid #92400E' : '1px solid #FDE68A'),
+                  px: 0.3
                 }}
               />
             )}
           </Box>
 
           {descricao && (
-            <Typography variant="body2" color="text.secondary" mb={1.2} sx={{ fontStyle: 'italic', bgcolor: '#F8FAFC', p: 0.8, borderRadius: 1.5, fontSize: '0.75rem', lineHeight: 1.35 }}>
+            <Typography variant="body2" color="text.secondary" mb={1.2} sx={{ fontStyle: 'italic', bgcolor: isDark ? '#1E293B' : '#F8FAFC', p: 1, borderRadius: 1.5, fontSize: '0.75rem', lineHeight: 1.35, border: isDark ? '1px solid #334155' : 'none' }}>
               "{descricao}"
             </Typography>
           )}
@@ -400,8 +457,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </Button>
             </Box>
           ) : (
-            <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 2, bgcolor: '#EFF6FF', py: 0.2, px: 1, '& .MuiAlert-message': { p: 0 } }}>
-              <Typography variant="caption" fontWeight={600} color="primary.dark" sx={{ fontSize: '0.70rem', lineHeight: 1.25 }}>
+            <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 1.5, bgcolor: isDark ? 'rgba(30, 58, 95, 0.4)' : '#EFF6FF', border: isDark ? '1px solid #1E3A5F' : 'none', py: 0.4, px: 1.2, '& .MuiAlert-message': { p: 0 } }}>
+              <Typography variant="caption" fontWeight={600} color={isDark ? '#93C5FD' : 'primary.dark'} sx={{ fontSize: '0.70rem', lineHeight: 1.25 }}>
                 <strong>Proteção LGPD (RN02):</strong> O endereço e mapa exatos são liberados assim que {isAmistoso ? 'o confronto for aceito' : 'sua vaga for confirmada'}.
               </Typography>
             </Alert>
@@ -450,16 +507,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 variant="outlined"
                 color="primary"
                 size="small"
-                startIcon={<MessageSquare size={15} color="#0066FF" />}
+                startIcon={<MessageSquare size={15} color={isDark ? '#60A5FA' : '#0066FF'} />}
                 onClick={() => setChatAberto(true)}
                 sx={{
                   fontWeight: 800,
                   borderRadius: 2,
                   fontSize: '0.74rem',
                   py: 0.6,
-                  bgcolor: '#EFF6FF',
-                  borderColor: '#BFDBFE',
-                  '&:hover': { bgcolor: '#DBEAFE', borderColor: '#93C5FD' },
+                  bgcolor: isDark ? '#1E293B' : '#EFF6FF',
+                  borderColor: isDark ? '#334155' : '#BFDBFE',
+                  color: isDark ? '#93C5FD' : 'primary.main',
+                  '&:hover': { bgcolor: isDark ? '#334155' : '#DBEAFE', borderColor: isDark ? '#60A5FA' : '#93C5FD' },
                 }}
               >
                 Mural / Chat

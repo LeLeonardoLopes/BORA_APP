@@ -113,7 +113,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({
     <Container maxWidth="sm" sx={{ mt: 1, pb: 6 }}>
       
       {/* 1. FORMULÁRIO DE NOVA AVALIAÇÃO */}
-      <Card sx={{ borderRadius: 4, p: 2.5, mb: 3, bgcolor: '#FFFFFF', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+      <Card sx={{ borderRadius: 2, p: 2.5, mb: 3, bgcolor: 'background.paper', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
         <CardContent sx={{ p: '0 !important' }}>
           
           <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -165,9 +165,10 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({
                 <Box 
                   sx={{ 
                     p: 2, 
-                    bgcolor: '#F8FAFC', 
-                    borderRadius: 3, 
-                    border: '1.5px solid #E2E8F0',
+                    bgcolor: 'background.default', 
+                    borderRadius: 2, 
+                    border: '1px solid',
+                    borderColor: 'divider',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
@@ -212,17 +213,43 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({
                   precision={1}
                   size="large"
                   onChange={(_, val) => setNota(val)}
-                  sx={{ fontSize: '2.5rem', color: '#FFD700' }}
+                  sx={{ fontSize: '2.6rem', color: '#FFD700' }}
                 />
+              </Box>
+
+              {/* Tags de Conduta Rápida (Elogios) */}
+              <Box>
+                <Typography variant="caption" fontWeight={800} color="text.secondary" display="block" mb={0.8}>
+                  Elogios Rápidos:
+                </Typography>
+                <Box display="flex" flexWrap="wrap" gap={0.8}>
+                  {['⚡ Pontual', '🤝 Respeitoso', '⚽ Joga Limpo', '🔥 Espírito de Equipe', '🌟 Craque do Jogo'].map((tag) => (
+                    <Chip
+                      key={tag}
+                      label={tag}
+                      size="small"
+                      clickable
+                      onClick={() => setComentario((prev) => prev ? `${prev} • ${tag}` : tag)}
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.72rem',
+                        bgcolor: comentario.includes(tag) ? '#EFF6FF' : '#F1F5F9',
+                        color: comentario.includes(tag) ? 'primary.main' : 'text.primary',
+                        border: comentario.includes(tag) ? '1px solid #3B82F6' : '1px solid transparent',
+                        '&:hover': { bgcolor: '#E0F2FE' }
+                      }}
+                    />
+                  ))}
+                </Box>
               </Box>
 
               {/* Comentário */}
               <TextField
-                label="Comentário (opcional)"
+                label="Comentário da Avaliação"
                 multiline
                 rows={2}
                 fullWidth
-                placeholder="Ex: Jogo limpo, pontual e respeitou as regras."
+                placeholder="Ex: Jogador pontual, muito respeitoso e jogo limpo."
                 value={comentario}
                 onChange={(e) => setComentario(e.target.value)}
               />
@@ -262,7 +289,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({
             <CircularProgress size={28} />
           </Box>
         ) : avaliacoesFeed.length === 0 ? (
-          <Card sx={{ borderRadius: 3, p: 3, textAlign: 'center', bgcolor: '#F8FAFC' }}>
+          <Card sx={{ borderRadius: 2, p: 3, textAlign: 'center', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary">
               Nenhuma avaliação registrada ainda. Seja o primeiro a avaliar um atleta!
             </Typography>
@@ -270,7 +297,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({
         ) : (
           <Box display="flex" flexDirection="column" gap={1.5}>
             {avaliacoesFeed.map((rev) => (
-              <Card key={rev.id} sx={{ borderRadius: 3, p: 2, bgcolor: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <Card key={rev.id} sx={{ borderRadius: 2, p: 2, bgcolor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ p: '0 !important' }}>
                   
                   {/* Cabeçalho da Avaliação */}
@@ -301,7 +328,7 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({
                   </Typography>
 
                   {/* Rodapé com Esporte e Bairro */}
-                  <Box display="flex" justifyContent="space-between" alignItems="center" pt={0.5} borderTop="1px solid #F1F5F9">
+                  <Box display="flex" justifyContent="space-between" alignItems="center" pt={0.8} borderTop="1px solid" borderColor="divider">
                     <Chip 
                       size="small" 
                       label={rev.partidaEsporte || 'Partida em Franca'} 
