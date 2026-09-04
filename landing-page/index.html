@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bora! App - Conexão Esportiva</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração das cores oficiais do projeto -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        boraBlue: '#0066FF',
+                        boraYellow: '#FFD700',
+                        boraDark: '#0f172a'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .hero-pattern {
+            background-color: #0066FF;
+            background-image: radial-gradient(#2563eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Navegação -->
+    <nav class="bg-white shadow-sm fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex-shrink-0 flex items-center">
+                    <span class="text-3xl font-extrabold text-boraBlue tracking-tighter">Bora<span class="text-boraYellow">!</span></span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#funcionalidades" class="text-gray-600 hover:text-boraBlue font-medium transition">Funcionalidades</a>
+                    <a href="#modalidades" class="text-gray-600 hover:text-boraBlue font-medium transition">Modalidades</a>
+                    <a href="#seguranca" class="text-gray-600 hover:text-boraBlue font-medium transition">Segurança</a>
+                </div>
+                <div>
+                    <a href="#lista-espera" class="bg-boraBlue text-white px-6 py-2 rounded-full font-semibold hover:bg-blue-700 transition shadow-lg hover:shadow-xl">
+                        Acesso Antecipado
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-pattern pt-32 pb-20 lg:pt-40 lg:pb-28 text-center text-white relative overflow-hidden">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <span class="inline-block py-1 px-3 rounded-full bg-blue-800 text-blue-100 text-sm font-semibold mb-6">
+                Lançamento em Breve (Franca/SP)
+            </span>
+            <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight mb-6">
+                Saia do sofá. <br/> <span class="text-boraYellow">Encontre sua partida.</span>
+            </h1>
+            <p class="text-xl text-blue-100 mb-10 max-w-2xl mx-auto leading-relaxed">
+                A primeira plataforma de conexão esportiva por geolocalização. Encontre amistosos, gerencie vagas no seu time e conecte-se com atletas na sua região.
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#lista-espera" class="bg-boraYellow text-boraDark px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-400 transition shadow-xl hover:shadow-2xl">
+                    Quero Testar o App
+                </a>
+                <a href="#funcionalidades" class="bg-white/10 border border-white/30 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white/20 transition backdrop-blur-sm">
+                    Como Funciona
+                </a>
+            </div>
+        </div>
+        <!-- Efeito visual de fundo -->
+        <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
+            <div class="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-blue-400 rounded-full blur-[100px]"></div>
+            <div class="absolute top-[60%] -right-[10%] w-[50%] h-[50%] bg-blue-300 rounded-full blur-[100px]"></div>
+        </div>
+    </section>
+
+    <!-- Funcionalidades -->
+    <section id="funcionalidades" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-extrabold text-boraDark sm:text-4xl">Tudo que você precisa para jogar</h2>
+                <p class="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">Nós resolvemos a dor de cabeça de organizar jogos e encontrar jogadores compromissados.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <!-- Card 1 -->
+                <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6 text-2xl">📍</div>
+                    <h3 class="text-xl font-bold text-boraDark mb-3">Busca por Proximidade</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Defina o seu raio de distância (de 2 a 25km) e o app encontra as melhores quadras, campos e partidas abertas perto de você em tempo real.
+                    </p>
+                </div>
+                <!-- Card 2 -->
+                <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-6 text-2xl">🤝</div>
+                    <h3 class="text-xl font-bold text-boraDark mb-3">Amistosos e Desafios</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Crie o perfil do seu time, adicione seu escudo e desafie outras equipes. Combine taxa de juiz e defina quem será o time mandante.
+                    </p>
+                </div>
+                <!-- Card 3 -->
+                <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-6 text-2xl">⭐</div>
+                    <h3 class="text-xl font-bold text-boraDark mb-3">Reputação 360°</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Cansado de atrasos? Nosso sistema de avaliação pós-jogo garante que você saiba com quem está jogando. Notas de pontualidade e comportamento.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modalidades -->
+    <section id="modalidades" class="py-20 bg-boraDark text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl font-extrabold sm:text-4xl mb-4">Mais de 8 Modalidades Suportadas</h2>
+            <p class="mb-12 text-gray-400">Não importa a sua tribo, o Bora! conecta você.</p>
+            
+            <div class="flex flex-wrap justify-center gap-4">
+                <span class="px-6 py-3 bg-white/10 rounded-full font-semibold border border-white/20">⚽ Futcampo</span>
+                <span class="px-6 py-3 bg-white/10 rounded-full font-semibold border border-white/20">⚽ Society / Terrão</span>
+                <span class="px-6 py-3 bg-white/10 rounded-full font-semibold border border-white/20">⚽ Futsal</span>
+                <span class="px-6 py-3 bg-white/10 rounded-full font-semibold border border-white/20">🏀 Basquete</span>
+                <span class="px-6 py-3 bg-white/10 rounded-full font-semibold border border-white/20">🏐 Vôlei</span>
+                <span class="px-6 py-3 bg-white/10 rounded-full font-semibold border border-white/20">🎾 Beach Tennis</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Segurança -->
+    <section id="seguranca" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center gap-12">
+            <div class="md:w-1/2">
+                <div class="w-full h-80 bg-gray-100 rounded-3xl flex items-center justify-center relative overflow-hidden border border-gray-200">
+                    <!-- Ilustração abstrata -->
+                    <div class="absolute inset-0 flex items-center justify-center text-8xl">🔒</div>
+                </div>
+            </div>
+            <div class="md:w-1/2">
+                <span class="text-boraBlue font-bold uppercase tracking-wider text-sm mb-2 block">Privacidade LGPD</span>
+                <h2 class="text-3xl font-extrabold text-boraDark mb-6">A sua segurança é a nossa prioridade.</h2>
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <span class="text-green-500 mr-3 mt-1">✓</span>
+                        <p class="text-gray-600"><strong>Endereço Protegido:</strong> O local exato da partida só é revelado após a sua vaga ser aprovada pelo organizador.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-green-500 mr-3 mt-1">✓</span>
+                        <p class="text-gray-600"><strong>Espaço Seguro Feminino:</strong> Filtros nativos para partidas exclusivas para mulheres, garantindo conforto e segurança.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-green-500 mr-3 mt-1">✓</span>
+                        <p class="text-gray-600"><strong>Moderação Automática:</strong> Jogadores com notas médias baixas são removidos automaticamente da plataforma.</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section id="lista-espera" class="py-24 bg-boraBlue text-center px-4">
+        <div class="max-w-3xl mx-auto">
+            <h2 class="text-4xl font-extrabold text-white mb-6">Pronto para entrar em campo?</h2>
+            <p class="text-xl text-blue-100 mb-10">
+                O aplicativo está em fase final de testes. Cadastre-se na lista de espera para ser um dos primeiros a usar em Franca/SP!
+            </p>
+            <form class="flex flex-col sm:flex-row max-w-lg mx-auto gap-3">
+                <input type="email" placeholder="Seu melhor e-mail" class="flex-1 px-6 py-4 rounded-full focus:outline-none focus:ring-4 focus:ring-boraYellow/50 text-boraDark font-medium" required>
+                <button type="submit" class="bg-boraYellow text-boraDark font-bold px-8 py-4 rounded-full hover:bg-yellow-400 transition shadow-lg">
+                    Quero Convite
+                </button>
+            </form>
+            <p class="text-blue-200 text-sm mt-4">Não enviamos spam. Prometemos.</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-boraDark text-gray-400 py-10 text-center">
+        <p class="mb-4">
+            <span class="text-2xl font-extrabold text-white tracking-tighter">Bora<span class="text-boraYellow">!</span></span>
+        </p>
+        <p>© 2026 Bora! App. Todos os direitos reservados.</p>
+        <p class="text-sm mt-2">Feito com 💙 em Franca/SP</p>
+    </footer>
+
+</body>
+</html>
