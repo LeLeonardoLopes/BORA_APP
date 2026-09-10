@@ -5,7 +5,7 @@
 **5º Semestre — Trabalho de Graduação (TG) / Engenharia de Software III (2026)**  
 
 **Autores (Equipe Discente):**
-* **Leonardo Pereira** — *Arquitetura de Software, Engenharia de Backend, Modelagem de Dados e Regras de Negócio*
+* **Leonardo Lopes dos Santos** — *Arquitetura de Software, Engenharia de Backend, Modelagem de Dados e Regras de Negócio*
 * **Renata Saraiva Claudino** — *Líder de Projeto, Engenharia de Requisitos, Prototipação UI/UX, Design de Interfaces e Identidade Visual*
 
 **Orientação Acadêmica:**
@@ -36,30 +36,50 @@ Ser a plataforma líder e referência nacional em integração esportiva comunit
 
 ---
 
-## 2. Perguntas e Respostas para Elicitação de Requisitos
+## 2. Elicitação de Requisitos e Pesquisa de Campo (N = 31)
 
-Questionário quantitativo e qualitativo aplicado ao público-alvo com recorte especial para práticas seguras e gênero:
+### 2.1. Metodologia e Conformidade com a LGPD
+A etapa de engenharia e elicitação de requisitos do Bora! App foi conduzida por meio de questionário estruturado com ramificação lógica (*branching*) via Microsoft Forms, aplicado entre praticantes de esportes da região de Franca/SP. Em estrita conformidade com a **Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018, Art. 6º, III — Princípio da Minimização de Dados)**, o formulário foi aplicado de forma **100% anônima**, dispensando a coleta de nomes, telefones, e-mails ou quaisquer identificadores pessoais diretos.
 
-1. **Qual é a sua faixa etária?**  
-   *Resultado:* Campo aberto com predominância entre 16 e 45 anos.
-2. **Quais esportes você pratica ou gostaria de praticar com maior frequência?**  
-   *Resultado:* Futebol de Campo, Society, Futsal, Basquete, Vôlei, Futevôlei, Tênis, Beach Tennis e Handebol.
-3. **Qual é o principal obstáculo para a prática regular de esportes hoje?**  
-   *Resultado:* 64% falta de companhia / time incompleto; 22% falta de horários/quadras; 14% insegurança ao jogar com desconhecidos.
-4. **Para mulheres: você já deixou de praticar esportes em locais públicos por medo de assédio ou insegurança?**  
-   *Resultado:* **78% das mulheres entrevistadas responderam SIM**. A falta de partidas exclusivas e o medo de importunação são os maiores desestimuladores da prática feminina em praças e quadras abertas.
-5. **Você considera indispensável uma funcionalidade de partidas exclusivas para mulheres com mapa oculto para homens?**  
-   *Resultado:* **94% de aprovação feminina**. Foi apontada como a funcionalidade mais inovadora e necessária para garantir a integridade física e tranquilidade das jogadoras.
-6. **Como você avalia a ideia de um "Uber dos Esportes" (aprovação por nota média de conduta e avaliação pós-jogo)?**  
-   *Resultado:* 92% consideram essencial poder avaliar e ver o histórico dos participantes antes de aceitá-los.
-7. **Em uma escala de 1 a 5 estrelas, qual a importância da reputação do jogador antes do aceite?**  
-   *Resultado:* Média 4.8 / 5.0. Fator decisivo para o anfitrião da partida.
-8. **Com que antecedência você costuma planejar suas atividades esportivas?**  
-   *Resultado:* 45% procuram no mesmo dia; 35% com 1 a 2 dias; 20% semanalmente.
-9. **Qual formato de jogo é mais comum na sua rotina?**  
-   *Resultado:* 58% vagas avulsas para completar jogos; 42% desafios de amistosos entre times formados.
-10. **Em relação a custos em quadras públicas vs privadas, qual sua expectativa?**  
-    *Resultado:* Locais públicos (CEPELs/praças) 100% gratuitos; locais particulares com divisão transparente de aluguel e taxa de arbitragem 50/50 em amistosos.
+O anonimato estrito foi adotado para:
+1. **Eliminar o viés de inibição social (*social desirability bias*):** permitindo que as respondentes relatassem com total franqueza situações críticas de assédio e insegurança vivenciadas em praças esportivas públicas;
+2. **Obter dados fidedignos de adesão a sanções duras:** validando o consenso em torno do banimento definitivo por machismo, racismo e agressões físicas.
+
+---
+
+### 2.2. Resultados Quantitativos Consolidados da Pesquisa (Planilha Oficial)
+
+Abaixo estão tabuladas as respostas dos **31 participantes** da pesquisa de campo (*Fonte: Bora pro Jogo. Pesquisa sobre Conectividade e Esporte(1-31).xlsx*):
+
+| Nº | Pergunta Elicitada | Opções de Resposta | Frequência (N=31) | Percentual (%) |
+| :--- | :--- | :--- | :---: | :---: |
+| **Q1** | **Faixa Etária** | • 26 a 35 anos<br>• 18 a 25 anos<br>• 36 a 45 anos<br>• Mais de 45 anos | 20<br>5<br>4<br>2 | **64,5%**<br>16,1%<br>12,9%<br>6,5% |
+| **Q2** | **Modalidades Esportivas Praticadas / Desejadas** *(Múltipla escolha)* | • Futebol de Campo / Society<br>• Vôlei / Futevôlei<br>• Futsal<br>• Beach Tennis / Tênis<br>• Basquete<br>• Handebol<br>• Outros | 13<br>13<br>8<br>6<br>6<br>1<br>14 | **41,9%**<br>**41,9%**<br>25,8%<br>19,4%<br>19,4%<br>3,2%<br>45,2% |
+| **Q3** | **Principal Obstáculo para Prática Regular** | • Falta de tempo<br>• Dificuldade de encontrar locais e horários disponíveis<br>• Falta de companhia / time incompleto<br>• Insegurança ou medo de conflitos com desconhecidos | 11<br>8<br>8<br>4 | **35,5%**<br>25,8%<br>25,8%<br>12,9% |
+| **Q4** | **Raio Máximo de Deslocamento Aceitável** | • Até 5 km (Deslocamento padrão na cidade)<br>• Mais de 10 km (Qualquer região da cidade)<br>• Até 2 km (Caminhada / Bairro)<br>• Até 10 km | 16<br>7<br>6<br>2 | **51,6%**<br>22,6%<br>19,4%<br>6,5% |
+| **Q5** | **Identificação de Gênero** | • Masculino<br>• Feminino<br>• Outro / Prefiro não informar | 19<br>11<br>1 | **61,3%**<br>**35,5%**<br>3,2% |
+| **Q6** | **[Exclusivo Mulheres - N=11] Já deixou de praticar esporte por medo de assédio/insegurança em praças públicas?** | • Sim, com frequência<br>• Sim, às vezes<br>• Não, nunca passei por isso | 6<br>4<br>1 | **54,5%**<br>**36,4%** (Total Sim: **90,9%**)<br>9,1% |
+| **Q7** | **[Exclusivo Mulheres - N=11] Importância de mapa e localização blindados/ocultos para homens (RN06)?** | • Indispensável / Muito importante<br>• Pouco importante<br>• Indiferente | 9<br>1<br>1 | **81,8%**<br>9,1%<br>9,1% |
+| **Q8** | **Sistema de Reputação Mútua pós-jogo e nota antes do aceite (1 a 5 estrelas)?** | • Essencial (evita descompromissados e violentos)<br>• Útil | 18<br>13 | **58,1%**<br>41,9% (Aprovação: **100%**) |
+| **Q9** | **Avaliação da organização do anfitrião, condições da quadra e Clima de Fair Play do Jogo?** | • Sim, ajuda muito a escolher jogos saudáveis e quadras de qualidade<br>• Apenas avaliar os atletas individualmente<br>• Indiferente | 27<br>3<br>1 | **87,1%**<br>9,7%<br>3,2% |
+| **Q10**| **Registro de Súmula Digital Oficial em Amistosos entre Equipes?** | • Sim, traz seriedade, organização e histórico para o time<br>• Não vejo necessidade | 28<br>3 | **90,3%**<br>9,7% |
+| **Q11**| **Perfil de Arbitragem em Amistosos Pagos** | • Modelo Híbrido (Árbitro Comunitário avaliado OU Federado)<br>• Árbitros experientes avaliados pela comunidade<br>• Apenas Árbitros Federados oficiais<br>• Qualquer pessoa pode apitar / Sem árbitro | 13<br>6<br>2<br>10 | **41,9%**<br>19,4%<br>6,5%<br>32,3% |
+| **Q12**| **Canal de Denúncia Ágil com Banimento Definitivo por Racismo, Machismo, Homofobia ou Agressão?** | • Apoio totalmente (Tolerância Zero no esporte)<br>• Apenas advertência verbal | 28<br>3 | **90,3%**<br>9,7% |
+
+---
+
+### 2.3. Diretrizes de Engenharia e Justificativas de Requisitos Derivadas da Pesquisa
+
+1. **Validação Estatística da RN06 (Espaço Seguro Feminino):**
+   * O dado alarmante de que **90,9% das mulheres participantes já deixaram de praticar esportes em locais públicos devido a assédio ou insegurança**, aliado ao índice de **81,8% que consideram a blindagem geoespacial indispensável**, justifica e consolida a inclusão da regra de negócio **RN06** e a consulta espacial com filtro estrito de gênero no PostGIS (ST_DWithin).
+2. **Consenso Unânime da Reputação Mútua Estilo Uber (RN05 / UC05):**
+   * **100% dos respondentes** aprovaram a avaliação de atletas pós-jogo por estrelas (58,1% essencial e 41,9% útil). Além disso, **87,1%** exigem a avaliação do anfitrião, do estado de conservação do local e da métrica de *Clima do Jogo (Fair Play)*, inspirando a modelagem da tabela valiacao com notas multidimensionais.
+3. **Calibração do Raio Geoespacial (RN02 / RF02):**
+   * Mais de **71% dos participantes** buscam partidas em um raio de até 5 km de suas residências (sendo 19,4% no próprio bairro até 2 km). O slider de busca foi calibrado dinamicamente com intervalo de 2 km a 25 km com centro padrão em Franca/SP.
+4. **Formalização de Amistosos e Súmula Digital (RF06 / RN04):**
+   * Com **90,3% de apoio**, foi consolidada a funcionalidade de desafio entre equipes cadastradas com geração de súmula digital consensual assinada eletronicamente pelos capitães ao término da partida.
+5. **Políticas de Compliance e Tolerância Zero (RN08 / UC01):**
+   * O respaldo de **90,3% para o banimento definitivo** fundamenta a existência do fluxo de denúncias imediatas, vinculação obrigatória de CPF e protocolo de suspensão automática da conta em caso de conduta antidesportiva grave ou discriminação.
 
 ---
 
@@ -79,7 +99,7 @@ Questionário quantitativo e qualitativo aplicado ao público-alvo com recorte e
 | :--- | :--- |
 | **What (O quê?)** | Plataforma multiplataforma de conexão esportiva por geolocalização, com reputação estilo Uber, espaço seguro para mulheres e agendamento de amistosos entre times. |
 | **Why (Por quê?)** | Combater o sedentarismo e a violência/assédio contra a mulher no esporte amador, oferecendo ambientes verificados, justos e avaliados pela comunidade. |
-| **Who (Quem?)** | Leonardo Pereira e Renata Saraiva Claudino (Alunos do 5º Semestre ADS - FATEC Franca), sob orientação do Prof. Carlos Roland. |
+| **Who (Quem?)** | Leonardo Lopes dos Santos e Renata Saraiva Claudino (Alunos do 5º Semestre ADS - FATEC Franca), sob orientação do Prof. Carlos Roland. |
 | **Where (Onde?)** | Lançamento em Franca/SP (CEPELs e quadras privadas), com arquitetura em nuvem escalável para todo o território nacional. |
 | **When (Quando?)** | Concepção, modelagem, desenvolvimento dos 3 CRUDs, testes e defesa de TG no ano letivo de 2026. |
 | **How (Como?)** | Backend RESTful em Node.js com TypeScript e Fastify (Clean Architecture em 4 Camadas), PostgreSQL 16 + PostGIS, frontend React + Material UI, WebSockets e Docker. |
@@ -191,7 +211,7 @@ Questionário quantitativo e qualitativo aplicado ao público-alvo com recorte e
 
 * **Título do Projeto:** Bora! App — Conexão Esportiva, Reputação Mútua, Gestão de Amistosos e Segurança Feminina
 * **Contexto:** Trabalho de Graduação (TG) — 5º Semestre de Análise e Desenvolvimento de Sistemas (FATEC Franca).
-* **Equipe Executora:** Leonardo Pereira e Renata Saraiva Claudino.
+* **Equipe Executora:** Leonardo Lopes dos Santos e Renata Saraiva Claudino.
 * **Orientador:** Prof. Carlos Eduardo de França Roland.
 * **Justificativa:** Social Tech de impacto que resolve o sedentarismo e a falta de quórum esportivo, trazendo duas inovações fundamentais: a reputação mútua no estilo Uber e a blindagem geoespacial para mulheres, criando um ambiente seguro contra assédio e violência.
 * **Premissas:** Arquitetura limpa em 4 camadas, suporte nativo a operações geoespaciais com PostGIS e conformidade rigorosa com a LGPD.
@@ -620,4 +640,4 @@ A arquitetura do Bora! App adota a **Clean Architecture em 4 Camadas** com Inver
 | **v5.0** | 19/08/2026 | Especificação preliminar com 6 Casos de Uso básicos e modelagem inicial. |
 | **v7.0** | 20/08/2026 | Padronização snake_case, trava RN03 de cancelamento em partidas lotadas e protótipos Hi-Fi. |
 | **v8.0** | 24/08/2026 | Inclusão de Amistosos entre Equipes, autenticação com trava de CPF (Módulo 11) + OTP, Chat WebSocket, Soft Delete e Auditoria Log. |
-| **v8.1 (Atual)** | 27/08/2026 | **Versão Oficial Consolidada de Engenharia de Software III (TG):**<br>• Formalização da **RN06 (Espaço Seguro Feminino)**: combate à violência contra a mulher com blindagem geoespacial que oculta partidas femininas para homens.<br>• Modelagem completa MER (Conceitual) e DER (Lógico/Físico) de 7 tabelas com query geoespacial de proteção de gênero.<br>• Alinhamento do conceito central de **Reputação Mútua Estilo Uber** e avaliação 360°.<br>• Autores: **Leonardo Pereira** e **Renata Saraiva Claudino** (5º Semestre ADS - FATEC Franca). |
+| **v8.1 (Atual)** | 27/08/2026 | **Versão Oficial Consolidada de Engenharia de Software III (TG):**<br>• Formalização da **RN06 (Espaço Seguro Feminino)**: combate à violência contra a mulher com blindagem geoespacial que oculta partidas femininas para homens.<br>• Modelagem completa MER (Conceitual) e DER (Lógico/Físico) de 7 tabelas com query geoespacial de proteção de gênero.<br>• Alinhamento do conceito central de **Reputação Mútua Estilo Uber** e avaliação 360°.<br>• Autores: **Leonardo Lopes dos Santos** e **Renata Saraiva Claudino** (5º Semestre ADS - FATEC Franca). |
