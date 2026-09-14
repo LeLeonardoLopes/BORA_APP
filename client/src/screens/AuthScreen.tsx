@@ -143,7 +143,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [genero, setGenero] = useState<'Feminino' | 'Masculino' | 'Outro'>('Feminino');
+  const [genero, setGenero] = useState<'Feminino' | 'Masculino'>('Feminino');
   const [codigoOtp, setCodigoOtp] = useState('');
   const [codigoDev, setCodigoDev] = useState<string | null>(null);
 
@@ -447,19 +447,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               }}
             />
 
-            <FormControl fullWidth sx={{ borderRadius: 2.5 }}>
-              <Select
-                value={genero}
-                onChange={(e) => setGenero(e.target.value as any)}
-                displayEmpty
-                className="auth-input-white"
-                sx={selectAuthStyle}
-              >
-                <MenuItem value="Feminino" sx={{ fontWeight: 700 }}>Feminino</MenuItem>
-                <MenuItem value="Masculino" sx={{ fontWeight: 700 }}>Masculino</MenuItem>
-                <MenuItem value="Outro" sx={{ fontWeight: 700 }}>Outro</MenuItem>
-              </Select>
-            </FormControl>
+            <Box sx={{ width: '100%' }}>
+              <Typography variant="caption" sx={{ color: '#FFFFFF', fontWeight: 800, mb: 0.6, display: 'block', textAlign: 'center', letterSpacing: '0.04em' }}>
+                SEXO / GÊNERO:
+              </Typography>
+              <FormControl fullWidth sx={{ borderRadius: 2.5 }}>
+                <Select
+                  value={genero}
+                  onChange={(e) => setGenero(e.target.value as any)}
+                  className="auth-input-white"
+                  sx={selectAuthStyle}
+                >
+                  <MenuItem value="Feminino" sx={{ fontWeight: 800, color: '#0F172A' }}>🚺 Feminino</MenuItem>
+                  <MenuItem value="Masculino" sx={{ fontWeight: 800, color: '#0F172A' }}>🚹 Masculino</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
 
             <TextField 
               placeholder="EMAIL" 

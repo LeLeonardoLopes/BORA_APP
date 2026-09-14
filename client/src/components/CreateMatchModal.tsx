@@ -296,6 +296,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     }
   };
 
+  const isMulher = String(usuarioLogado?.genero || '').toLowerCase() === 'feminino';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -308,6 +310,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       lng: coordenadas.lng,
       esporte
     });
+
+    const ehExclusivoFeminino = isMulher && exclusivoFeminino;
 
     onSuccess({
       id: String(Date.now()),
@@ -329,7 +333,9 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       taxaJuiz: valorJuizEfetivo,
       valorPorEquipe: formatoJogo === 'Amistoso_Times' ? valorPorEquipe : 0,
       valorPorAtleta: formatoJogo === 'Avulso' ? valorPorAtletaAvulso : 0,
-      filtroGenero: exclusivoFeminino ? 'Feminino' : 'Misto',
+      filtroGenero: ehExclusivoFeminino ? 'Feminino' : 'Misto',
+      espacoSeguroFeminino: ehExclusivoFeminino,
+      espaco_seguro_feminino: ehExclusivoFeminino,
     });
     onClose();
   };
@@ -361,7 +367,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.2, pt: 1 }}>
 
           {/* REGRA RN06: ESPAÇO SEGURO FEMININO (EXCLUSIVO PARA ORGANIZADORAS MULHERES) */}
-          {(!usuarioLogado || usuarioLogado?.genero === 'Feminino') && (
+          {isMulher && (
             <Box
               sx={{
                 p: 2,

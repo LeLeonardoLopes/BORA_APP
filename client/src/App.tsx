@@ -307,6 +307,20 @@ export const App: React.FC = () => {
     return partidas.filter((match) => {
       if (!match) return false;
 
+      // 0. BLINDAGEM ESPAÇO SEGURO FEMININO (RN06):
+      // Se a partida for exclusiva para mulheres e o perfil for MASCULINO, NÃO aparece no mapa nem na lista!
+      const isPartidaFeminina = match.espacoSeguroFeminino === true || 
+                                match.espaco_seguro_feminino === true || 
+                                match.filtroGenero === 'Feminino' || 
+                                match.filtro_genero === 'Feminino' ||
+                                match.filtroGenero === 'Exclusivo_Feminino';
+
+      const isUsuarioMasculino = String(usuarioLogado?.genero || '').toLowerCase() === 'masculino';
+
+      if (isPartidaFeminina && isUsuarioMasculino) {
+        return false;
+      }
+
       // 1. Filtro por Formato (Avulso vs Amistoso)
       if (filtroFormato !== 'Todos' && match.formatoJogo !== filtroFormato) {
         return false;

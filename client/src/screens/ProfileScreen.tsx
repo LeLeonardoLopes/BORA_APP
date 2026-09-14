@@ -708,6 +708,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               value={telefone}
               onChange={(e) => setTelefone(e.target.value)}
             />
+
+            <TextField
+              select
+              label="Sexo / Gênero"
+              fullWidth
+              size="small"
+              value={genero === 'Masculino' || genero === 'Feminino' ? genero : 'Feminino'}
+              onChange={(e) => setGenero(e.target.value)}
+            >
+              <MenuItem value="Feminino" sx={{ fontWeight: 700 }}>🚺 Feminino</MenuItem>
+              <MenuItem value="Masculino" sx={{ fontWeight: 700 }}>🚹 Masculino</MenuItem>
+            </TextField>
           </Box>
 
           <Box display="flex" gap={2} flexDirection={{ xs: 'column', sm: 'row' }}>
