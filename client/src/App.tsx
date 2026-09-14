@@ -128,7 +128,7 @@ export const App: React.FC = () => {
   const [modalCriarAberto, setModalCriarAberto] = useState(false);
   const [toastMensagem, setToastMensagem] = useState<string | null>(null);
   const [notificacaoRealtime, setNotificacaoRealtime] = useState<NotificacaoRealtime | null>(null);
-  const [totalSolicitacoesPendentes, setTotalSolicitacoesPendentes] = useState<number>(3);
+  const [totalSolicitacoesPendentes, setTotalSolicitacoesPendentes] = useState<number>(0);
 
   // ESTADOS DE FILTRO
   const [termoBusca, setTermoBusca] = useState<string>('');
@@ -158,8 +158,8 @@ export const App: React.FC = () => {
       const response = await api.get(`/matches?lat=-20.5388&lng=-47.4005&radius=${raioKm}`);
       if (response.data && Array.isArray(response.data.data)) {
         return response.data.data.map((p: any) => {
-          const isAmistoso = p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
-          const isPrivada = p.descricao?.toLowerCase().includes('arena') || p.descricao?.toLowerCase().includes('privada') || p.descricao?.toLowerCase().includes('sintética') || p.descricao?.toLowerCase().includes('sunset');
+          const isAmistoso = p.formatoJogo === 'Amistoso_Times' || p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
+          const isPrivada = p.tipoLocal === 'Privada' || p.descricao?.toLowerCase().includes('arena') || p.descricao?.toLowerCase().includes('privada') || p.descricao?.toLowerCase().includes('sintética') || p.descricao?.toLowerCase().includes('sunset');
           return {
             id: p.id,
             esporte: p.esporte,
@@ -175,8 +175,10 @@ export const App: React.FC = () => {
             lng: Number(p.lng),
             vagasPreenchidas: p.vagasPreenchidas || 0,
             maxVagas: p.maxVagas || 14,
-            formatoJogo: isAmistoso ? 'Amistoso_Times' : 'Avulso',
-            tipoLocal: isPrivada ? 'Privada' : 'Publica',
+            filtroGenero: p.filtroGenero || 'Misto',
+            filtroNivel: p.filtroNivel || 'Todos',
+            formatoJogo: p.formatoJogo || (isAmistoso ? 'Amistoso_Times' : 'Avulso'),
+            tipoLocal: p.tipoLocal || (isPrivada ? 'Privada' : 'Publica'),
             timeMandante: isAmistoso ? (p.timeMandante || 'Equipe de Franca') : undefined,
             timeVisitante: null,
             taxaCampo: p.taxaCampo || 0,
@@ -191,6 +193,33 @@ export const App: React.FC = () => {
     enabled: Boolean(usuarioLogado),
     staleTime: 1000 * 20,
   });
+
+  // Query para sincronizar solicitações pendentes reais do organizador
+  const { data: solicitacoesData = [] } = useQuery<any[]>({
+    queryKey: ['requests', usuarioLogado?.id],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/requests');
+        if (res.data && Array.isArray(res.data.data)) {
+          return res.data.data;
+        }
+      } catch {
+        // silencia se offline
+      }
+      return [];
+    },
+    enabled: Boolean(usuarioLogado?.id),
+    staleTime: 1000 * 15,
+  });
+
+  useEffect(() => {
+    if (Array.isArray(solicitacoesData) && usuarioLogado?.id) {
+      const pendentes = solicitacoesData.filter(
+        (s: any) => (s.organizadorId === usuarioLogado.id || s.organizador_id === usuarioLogado.id) && s.statusSolicitacao === 'Pendente'
+      ).length;
+      setTotalSolicitacoesPendentes(pendentes);
+    }
+  }, [solicitacoesData, usuarioLogado]);
 
   // Conexão WebSocket Real-Time Global (Fase 3 Notificações)
   useEffect(() => {
@@ -858,6 +887,7 @@ export const App: React.FC = () => {
                 onClose={() => setModalCriarAberto(false)}
                 onSuccess={handleCriarPartida}
                 meuTime={usuarioLogado?.meuTime}
+                usuarioLogado={usuarioLogado}
               />
             </>
           )}

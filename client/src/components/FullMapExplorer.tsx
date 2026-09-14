@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Box, Card } from '@mui/material';
+import { Box, Card, Typography, Button, Chip } from '@mui/material';
+import { GoogleMap, MarkerF, CircleF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
 
 export interface FullMapExplorerProps {
   partidas: any[];
@@ -12,8 +13,8 @@ export interface FullMapExplorerProps {
   onMarcarAmistoso?: (id: string) => void;
 }
 
-// Ícones personalizados para cada modalidade esportiva em Franca
-const criarIconeEsporte = (esporte: string = '', isAmistoso: boolean = false) => {
+// Ícones personalizados para cada modalidade esportiva em Franca (Leaflet)
+const criarIconeEsporteLeaflet = (esporte: string = '', isAmistoso: boolean = false) => {
   const cor = isAmistoso ? '#0066FF' : '#16A34A';
   const esp = String(esporte || '');
   const emoji = esp.includes('Basquete') ? '🏀' 
@@ -57,13 +58,25 @@ export const FullMapExplorer: React.FC<FullMapExplorerProps> = ({
   onSolicitarVaga,
   onMarcarAmistoso,
 }) => {
+  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const usarGoogleMaps = Boolean(googleMapsApiKey);
+
+  const { isLoaded: googleMapsLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script-explorer',
+    googleMapsApiKey: googleMapsApiKey,
+  });
+
+  const [partidaSelecionadaGoogle, setPartidaSelecionadaGoogle] = useState<any | null>(null);
+
+  // Refs para Leaflet Fallback
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  // 1. Inicializa o mapa
+  // 1. Inicializa o mapa Leaflet quando não usar Google Maps
   useEffect(() => {
+    if (usarGoogleMaps && !loadError) return;
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
@@ -99,18 +112,20 @@ export const FullMapExplorer: React.FC<FullMapExplorerProps> = ({
         mapInstanceRef.current = null;
       }
     };
-  }, []);
+  }, [usarGoogleMaps, loadError]);
 
-  // 2. Atualiza centro e raio
+  // 2. Atualiza centro e raio no Leaflet
   useEffect(() => {
+    if (usarGoogleMaps && !loadError) return;
     if (mapInstanceRef.current && circleRef.current) {
       circleRef.current.setLatLng([centroLat, centroLng]);
       circleRef.current.setRadius(raioKm * 1000);
     }
-  }, [centroLat, centroLng, raioKm]);
+  }, [centroLat, centroLng, raioKm, usarGoogleMaps, loadError]);
 
-  // 3. Atualiza os marcadores de partidas
+  // 3. Atualiza os marcadores de partidas no Leaflet
   useEffect(() => {
+    if (usarGoogleMaps && !loadError) return;
     if (!markersLayerRef.current || !mapInstanceRef.current) return;
 
     markersLayerRef.current.clearLayers();
@@ -123,7 +138,7 @@ export const FullMapExplorer: React.FC<FullMapExplorerProps> = ({
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
       const marker = L.marker([lat, lng], {
-        icon: criarIconeEsporte(match.esporte, isAmistoso),
+        icon: criarIconeEsporteLeaflet(match.esporte, isAmistoso),
       });
 
       const popupHtml = `
@@ -158,7 +173,7 @@ export const FullMapExplorer: React.FC<FullMapExplorerProps> = ({
 
       markersLayerRef.current?.addLayer(marker);
     });
-  }, [partidas, onSolicitarVaga, onMarcarAmistoso]);
+  }, [partidas, onSolicitarVaga, onMarcarAmistoso, usarGoogleMaps, loadError]);
 
   return (
     <Card 
@@ -172,7 +187,139 @@ export const FullMapExplorer: React.FC<FullMapExplorerProps> = ({
         position: 'relative'
       }}
     >
-      <Box ref={mapContainerRef} sx={{ width: '100%', height: '100%' }} />
+      {/* Badge de Provedor do Mapa */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          zIndex: 10,
+          bgcolor: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(6px)',
+          px: 1.2,
+          py: 0.4,
+          borderRadius: 2,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+        }}
+      >
+        <Chip
+          size="small"
+          label={usarGoogleMaps && googleMapsLoaded && !loadError ? 'Google Maps Platform' : 'Leaflet / OpenStreetMap'}
+          sx={{
+            fontWeight: 800,
+            fontSize: '0.68rem',
+            bgcolor: usarGoogleMaps && googleMapsLoaded && !loadError ? '#E0E7FF' : '#DCFCE7',
+            color: usarGoogleMaps && googleMapsLoaded && !loadError ? '#3730A3' : '#166534',
+            height: 22
+          }}
+        />
+      </Box>
+
+      {/* Renderização Híbrida: Google Maps ou Leaflet */}
+      {usarGoogleMaps && googleMapsLoaded && !loadError ? (
+        <GoogleMap
+          mapContainerStyle={{ width: '100%', height: '100%' }}
+          center={{ lat: centroLat, lng: centroLng }}
+          zoom={13}
+          options={{
+            disableDefaultUI: false,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true,
+          }}
+        >
+          {/* Círculo do Raio de Busca Geoespacial */}
+          <CircleF
+            center={{ lat: centroLat, lng: centroLng }}
+            radius={raioKm * 1000}
+            options={{
+              strokeColor: '#0066FF',
+              strokeOpacity: 0.8,
+              strokeWeight: 2,
+              fillColor: '#0066FF',
+              fillOpacity: 0.08,
+            }}
+          />
+
+          {/* Marcadores de Partidas no Google Maps */}
+          {partidas.map((match) => {
+            const lat = Number(match.lat);
+            const lng = Number(match.lng);
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) return null;
+
+            return (
+              <MarkerF
+                key={match.id}
+                position={{ lat, lng }}
+                title={`${match.esporte} - ${match.bairro}`}
+                onClick={() => setPartidaSelecionadaGoogle(match)}
+              />
+            );
+          })}
+
+          {/* InfoWindow interativo para a partida selecionada no Google Maps */}
+          {partidaSelecionadaGoogle && (
+            <InfoWindowF
+              position={{
+                lat: Number(partidaSelecionadaGoogle.lat),
+                lng: Number(partidaSelecionadaGoogle.lng)
+              }}
+              onCloseClick={() => setPartidaSelecionadaGoogle(null)}
+            >
+              <Box sx={{ p: 1, minWidth: 180, fontFamily: 'Poppins, sans-serif' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0066FF', mb: 0.3 }}>
+                  {partidaSelecionadaGoogle.esporte}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+                  📍 {partidaSelecionadaGoogle.bairro}, Franca/SP
+                </Typography>
+                <Box sx={{ mb: 1.2 }}>
+                  <Chip
+                    size="small"
+                    label={
+                      partidaSelecionadaGoogle.formatoJogo === 'Amistoso_Times'
+                        ? `⚔️ ${partidaSelecionadaGoogle.timeMandante || 'Time de Franca'}`
+                        : `${partidaSelecionadaGoogle.vagasPreenchidas}/${partidaSelecionadaGoogle.maxVagas} Vagas`
+                    }
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: '0.7rem',
+                      bgcolor: partidaSelecionadaGoogle.formatoJogo === 'Amistoso_Times' ? '#EFF6FF' : '#DCFCE7',
+                      color: partidaSelecionadaGoogle.formatoJogo === 'Amistoso_Times' ? '#0066FF' : '#166534',
+                      height: 22
+                    }}
+                  />
+                </Box>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="small"
+                  onClick={() => {
+                    if (partidaSelecionadaGoogle.formatoJogo === 'Amistoso_Times') {
+                      onMarcarAmistoso && onMarcarAmistoso(partidaSelecionadaGoogle.id);
+                    } else {
+                      onSolicitarVaga && onSolicitarVaga(partidaSelecionadaGoogle.id);
+                    }
+                    setPartidaSelecionadaGoogle(null);
+                  }}
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    borderRadius: 1.5,
+                    bgcolor: '#0066FF',
+                    textTransform: 'none'
+                  }}
+                >
+                  {partidaSelecionadaGoogle.formatoJogo === 'Amistoso_Times' ? 'Desafiar Amistoso' : 'Solicitar Vaga'}
+                </Button>
+              </Box>
+            </InfoWindowF>
+          )}
+        </GoogleMap>
+      ) : (
+        <Box ref={mapContainerRef} sx={{ width: '100%', height: '100%' }} />
+      )}
     </Card>
   );
 };

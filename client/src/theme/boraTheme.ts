@@ -179,6 +179,18 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
               fontFamily: '"Poppins", sans-serif',
               color: isDark ? '#F8FAFC' : '#0F172A',
             },
+            '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus, & input:-webkit-autofill:active': {
+              WebkitBoxShadow: isDark
+                ? '0 0 0 1000px #1E293B inset !important'
+                : '0 0 0 1000px #FFFFFF inset !important',
+              boxShadow: isDark
+                ? '0 0 0 1000px #1E293B inset !important'
+                : '0 0 0 1000px #FFFFFF inset !important',
+              WebkitTextFillColor: isDark ? '#F8FAFC !important' : '#0F172A !important',
+              caretColor: isDark ? '#F8FAFC !important' : '#0F172A !important',
+              borderRadius: 'inherit',
+              transition: 'background-color 50000s ease-in-out 0s',
+            },
             '& input::placeholder': {
               fontSize: '0.80rem',
               color: isDark ? '#64748B' : '#94A3B8',

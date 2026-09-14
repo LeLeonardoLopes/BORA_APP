@@ -41,7 +41,7 @@ CREATE TABLE usuario (
     foto_url VARCHAR(500),
     genero VARCHAR(50) NOT NULL,
     data_nascimento DATE NOT NULL,
-    raio_busca_km INTEGER DEFAULT 5 NOT NULL CHECK (raio_busca_km BETWEEN 1 AND 5),
+    raio_busca_km INTEGER DEFAULT 5 NOT NULL CHECK (raio_busca_km BETWEEN 1 AND 30),
     modalidades_favoritas VARCHAR(255),
     nota_media DECIMAL(3,2) DEFAULT 5.00 NOT NULL,
     total_avaliacoes INTEGER DEFAULT 0 NOT NULL,

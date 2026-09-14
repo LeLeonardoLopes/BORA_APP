@@ -28,6 +28,21 @@ export class CriarPartidaUseCase {
   constructor(private partidaRepo: IPartidaRepository) {}
 
   public async execute(input: CriarPartidaInput): Promise<Partida> {
+    const dataHoraPartida = new Date(input.dataHora);
+    const duracao = input.duracaoMinutos || 90;
+
+    // Regra RN01: Anti-conflito de Agenda para Organizador
+    if (this.partidaRepo.verificarConflitoHorarioOrganizador) {
+      const temConflito = await this.partidaRepo.verificarConflitoHorarioOrganizador(
+        input.organizadorId,
+        dataHoraPartida,
+        duracao
+      );
+      if (temConflito) {
+        throw new Error('Você já possui uma partida agendada neste mesmo intervalo de horário (RN01 - Anti-conflito de Agenda).');
+      }
+    }
+
     const novaPartida = new Partida({
       id: input.id || randomUUID(),
       organizadorId: input.organizadorId,

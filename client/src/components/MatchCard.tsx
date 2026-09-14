@@ -318,18 +318,18 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
             {/* Badges de Status, Vagas e Gênero */}
             <Box display="flex" gap={0.6} alignItems="center" flexWrap="wrap">
-              {filtroGenero === 'Exclusivo_Feminino' && (
+              {(filtroGenero === 'Feminino' || filtroGenero === 'Exclusivo_Feminino') && (
                 <Chip
                   icon={<ShieldCheck size={12} color="#FFFFFF" />}
-                  label="Espaço Seguro (RN06)"
+                  label="Partida 100% Feminina"
                   size="small"
                   sx={{
-                    background: 'linear-gradient(135deg, #9333EA 0%, #6B21A8 100%)',
+                    background: 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)',
                     color: '#FFFFFF',
                     fontWeight: 900,
                     fontSize: '0.66rem',
                     height: 21,
-                    boxShadow: '0 2px 8px rgba(147, 51, 234, 0.35)'
+                    boxShadow: '0 2px 8px rgba(236, 72, 153, 0.35)'
                   }}
                 />
               )}

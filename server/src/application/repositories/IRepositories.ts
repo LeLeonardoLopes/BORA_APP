@@ -28,6 +28,7 @@ export interface IPartidaRepository {
   buscarPartidasExpiradas(agora?: Date): Promise<Partida[]>;
   atualizar(partida: Partida): Promise<void>;
   softDelete(id: string, usuarioId: string): Promise<void>;
+  verificarConflitoHorarioOrganizador?(organizadorId: string, dataHora: Date, duracaoMinutos?: number): Promise<boolean>;
 }
 
 export interface ISolicitacaoDetalhada {

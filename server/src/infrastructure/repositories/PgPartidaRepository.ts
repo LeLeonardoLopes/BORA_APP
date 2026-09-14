@@ -146,6 +146,7 @@ export class PgPartidaRepository implements IPartidaRepository {
         FROM partida
         WHERE status_partida IN ('Publicada', 'Lotada')
           AND deletado_em IS NULL
+          AND data_hora > (NOW() - INTERVAL '15 minutes')
           AND ST_DWithin(
             COALESCE(localizacao, ST_SetSRID(ST_MakePoint(lng, lat), 4326))::geography,
             ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
@@ -189,6 +190,7 @@ export class PgPartidaRepository implements IPartidaRepository {
           FROM partida
           WHERE status_partida IN ('Publicada', 'Lotada')
             AND deletado_em IS NULL
+            AND data_hora > (NOW() - INTERVAL '15 minutes')
         `;
         const params: any[] = [lat, lng];
 
@@ -220,8 +222,13 @@ export class PgPartidaRepository implements IPartidaRepository {
     // 3. Fallback em memória (caso DB esteja totalmente indisponível)
     const todas = Array.from(this.memoriaFallback.values());
     const raioKm = raioMetros / 1000;
+    const limiteTolerancia = Date.now() - 15 * 60 * 1000;
+
     return todas.filter((p) => {
       if (p.statusPartida !== StatusPartidaEnum.PUBLICADA && p.statusPartida !== StatusPartidaEnum.LOTADA) {
+        return false;
+      }
+      if (p.dataHora.getTime() < limiteTolerancia) {
         return false;
       }
       if (esporte && !p.esporte.toLowerCase().includes(esporte.toLowerCase())) {
@@ -296,6 +303,41 @@ export class PgPartidaRepository implements IPartidaRepository {
     this.memoriaFallback.delete(id);
   }
 
+  public async verificarConflitoHorarioOrganizador(
+    organizadorId: string,
+    dataHora: Date,
+    duracaoMinutos = 90
+  ): Promise<boolean> {
+    try {
+      const query = `
+        SELECT COUNT(*)
+        FROM partida
+        WHERE organizador_id = $1
+          AND status_partida IN ('Publicada', 'Lotada', 'Em_Andamento')
+          AND deletado_em IS NULL
+          AND (
+            data_hora BETWEEN ($2::timestamp - (COALESCE(duracao_minutos, 90) || ' minutes')::interval)
+                          AND ($2::timestamp + ($3 || ' minutes')::interval)
+          );
+      `;
+      const res = await db.query(query, [organizadorId, dataHora, duracaoMinutos]);
+      return parseInt(res.rows[0].count, 10) > 0;
+    } catch (err: any) {
+      console.warn('Falha ao verificar conflito de agenda do organizador no PostgreSQL:', err.message);
+      // Fallback em memória
+      const inicioNova = dataHora.getTime();
+      const fimNova = inicioNova + duracaoMinutos * 60000;
+
+      return Array.from(this.memoriaFallback.values()).some((p) => {
+        if (p.organizadorId !== organizadorId) return false;
+        if (p.statusPartida === StatusPartidaEnum.CANCELADA || p.statusPartida === StatusPartidaEnum.FINALIZADA) return false;
+        const inicioExistente = p.dataHora.getTime();
+        const fimExistente = inicioExistente + (p.duracaoMinutos || 90) * 60000;
+        return inicioNova < fimExistente && fimNova > inicioExistente;
+      });
+    }
+  }
+
   private mapToEntity(r: any): Partida {
     return new Partida({
       id: r.id,
@@ -314,6 +356,10 @@ export class PgPartidaRepository implements IPartidaRepository {
       lat: Number(r.lat),
       lng: Number(r.lng),
       statusPartida: r.status_partida as StatusPartidaEnum,
+      formatoJogo: r.formato_jogo,
+      tipoLocal: r.tipo_local,
+      taxaCampo: r.taxa_campo ? Number(r.taxa_campo) : 0,
+      taxaJuiz: r.taxa_juiz ? Number(r.taxa_juiz) : 0,
       criadoEm: new Date(r.criado_em),
       atualizadoEm: new Date(r.atualizado_em),
     });

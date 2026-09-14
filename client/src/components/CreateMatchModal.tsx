@@ -19,7 +19,8 @@ import {
   Chip,
   CircularProgress,
   Autocomplete,
-  Collapse
+  Collapse,
+  Switch
 } from '@mui/material';
 import { 
   Shield, 
@@ -69,6 +70,7 @@ export interface CreateMatchModalProps {
   onClose: () => void;
   onSuccess: (novaPartida: any) => void;
   meuTime?: any;
+  usuarioLogado?: any;
 }
 
 export const MODALIDADES_COLETIVAS = [
@@ -91,6 +93,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   onClose,
   onSuccess,
   meuTime,
+  usuarioLogado,
 }) => {
   const [formatoJogo, setFormatoJogo] = useState<'Avulso' | 'Amistoso_Times'>('Avulso');
   const [tipoLocal, setTipoLocal] = useState<'Publica' | 'Privada'>('Publica');
@@ -99,6 +102,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [descricao, setDescricao] = useState('');
   const [dataHora, setDataHora] = useState('');
   const [maxVagas, setMaxVagas] = useState(14);
+  const [exclusivoFeminino, setExclusivoFeminino] = useState(false);
   
   // 1º SEQUÊNCIA PRINCIPAL: Bairro, Endereço e Alfinete no Mapa
   const [bairro, setBairro] = useState('São José');
@@ -325,6 +329,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       taxaJuiz: valorJuizEfetivo,
       valorPorEquipe: formatoJogo === 'Amistoso_Times' ? valorPorEquipe : 0,
       valorPorAtleta: formatoJogo === 'Avulso' ? valorPorAtletaAvulso : 0,
+      filtroGenero: exclusivoFeminino ? 'Feminino' : 'Misto',
     });
     onClose();
   };
@@ -354,6 +359,53 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       
       <Box component="form" onSubmit={handleSubmit}>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.2, pt: 1 }}>
+
+          {/* REGRA RN06: ESPAÇO SEGURO FEMININO (EXCLUSIVO PARA ORGANIZADORAS MULHERES) */}
+          {(!usuarioLogado || usuarioLogado?.genero === 'Feminino') && (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2.5,
+                bgcolor: exclusivoFeminino ? 'rgba(236, 72, 153, 0.10)' : 'action.hover',
+                border: `1.5px solid ${exclusivoFeminino ? '#EC4899' : 'divider'}`,
+                transition: 'all 0.25s ease-in-out',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box sx={{ pr: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: exclusivoFeminino ? '#EC4899' : 'text.primary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    🛡️ Espaço Seguro Feminino (RN06)
+                  </Typography>
+                  {exclusivoFeminino && (
+                    <Chip 
+                      label="Partida 100% Feminina" 
+                      size="small" 
+                      sx={{ bgcolor: '#EC4899', color: '#fff', fontWeight: 800, fontSize: '0.72rem', height: 22 }} 
+                    />
+                  )}
+                </Box>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.3 }}>
+                  Blindagem exclusiva: apenas mulheres poderão visualizar e solicitar vagas nesta partida.
+                </Typography>
+              </Box>
+              <Switch
+                checked={exclusivoFeminino}
+                onChange={(e) => setExclusivoFeminino(e.target.checked)}
+                color="secondary"
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: '#EC4899',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: '#EC4899',
+                  },
+                }}
+              />
+            </Box>
+          )}
           
           {/* SELEÇÃO DO FORMATO DE JOGO */}
           <FormControl>

@@ -91,7 +91,7 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   const finalizarPartidaUseCase = new FinalizarPartidaUseCase(partidaRepo, solicitacaoRepo, wsGateway);
   const softDeletePartidaUseCase = new SoftDeletePartidaUseCase(partidaRepo, solicitacaoRepo, auditoriaRepo, wsGateway);
 
-  const criarSolicitacaoUseCase = new CriarSolicitacaoUseCase(solicitacaoRepo, partidaRepo);
+  const criarSolicitacaoUseCase = new CriarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, usuarioRepo);
   const listarSolicitacoesUseCase = new ListarSolicitacoesUseCase(solicitacaoRepo);
   const gerenciarSolicitacaoUseCase = new GerenciarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, wsGateway);
 

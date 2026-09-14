@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Box, Typography, Chip } from '@mui/material';
-import { MapPin, Navigation, Hand } from 'lucide-react';
+import { MapPin, Hand } from 'lucide-react';
 import L from 'leaflet';
+import { GoogleMap, MarkerF, useJsApiLoader } from '@react-google-maps/api';
 
 export interface InteractiveMapPickerProps {
   lat: number;
@@ -12,7 +13,7 @@ export interface InteractiveMapPickerProps {
   onChangeCoordinates: (lat: number, lng: number) => void;
 }
 
-// Ícone SVG customizado com estilo oficial Bora! App (Azul / Dourado / Alfinete 3D)
+// Ícone SVG customizado com estilo oficial Bora! App (Azul / Dourado / Alfinete 3D) para Leaflet
 const criarIconeAlfinete = () => {
   return L.divIcon({
     className: 'custom-bora-pin',
@@ -61,12 +62,23 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
   buscando = false,
   onChangeCoordinates,
 }) => {
+  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const usarGoogleMaps = Boolean(googleMapsApiKey);
+
+  // Hook oficial da Google Maps API
+  const { isLoaded: googleMapsLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script-picker',
+    googleMapsApiKey: googleMapsApiKey,
+  });
+
+  // Refs para Fallback Leaflet
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
-  // Inicialização do Mapa Leaflet
+  // Inicialização do Mapa Leaflet (apenas quando não utilizar Google Maps)
   useEffect(() => {
+    if (usarGoogleMaps && !loadError) return;
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
@@ -87,13 +99,11 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
         autoPan: true,
       }).addTo(map);
 
-      // Evento ao terminar de arrastar o alfinete
       marker.on('dragend', () => {
         const pos = marker.getLatLng();
         onChangeCoordinates(pos.lat, pos.lng);
       });
 
-      // Evento ao clicar em qualquer ponto do mapa para reposicionar o alfinete
       map.on('click', (e: L.LeafletMouseEvent) => {
         marker.setLatLng(e.latlng);
         map.panTo(e.latlng, { animate: true, duration: 0.5 });
@@ -111,10 +121,11 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
         markerRef.current = null;
       }
     };
-  }, []);
+  }, [usarGoogleMaps, loadError]);
 
-  // Atualização de coordenadas caso mudem por props externas (ex: CEP ou Catálogo)
+  // Atualização de coordenadas no Leaflet caso mudem externamente
   useEffect(() => {
+    if (usarGoogleMaps && !loadError) return;
     if (mapInstanceRef.current && markerRef.current) {
       const currentPos = markerRef.current.getLatLng();
       const mudouSignificativo =
@@ -125,11 +136,23 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
         mapInstanceRef.current.setView([lat, lng], 16, { animate: true });
       }
     }
-  }, [lat, lng]);
+  }, [lat, lng, usarGoogleMaps, loadError]);
+
+  const handleGoogleMarkerDragEnd = useCallback((e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      onChangeCoordinates(e.latLng.lat(), e.latLng.lng());
+    }
+  }, [onChangeCoordinates]);
+
+  const handleGoogleMapClick = useCallback((e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      onChangeCoordinates(e.latLng.lat(), e.latLng.lng());
+    }
+  }, [onChangeCoordinates]);
 
   return (
     <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '2px solid #0066FF', bgcolor: '#F8FAFC' }}>
-      {/* Header do Minimapa com Status da Origem */}
+      {/* Header do Minimapa com Status da Origem e Provedor */}
       <Box
         sx={{
           px: 2,
@@ -147,33 +170,70 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
             COORDENADAS: ({lat.toFixed(5)}, {lng.toFixed(5)})
           </Typography>
         </Box>
-        <Chip
-          size="small"
-          label={buscando ? 'Buscando Coordenadas...' : origemTexto}
-          sx={{
-            fontWeight: 800,
-            fontSize: '0.7rem',
-            bgcolor: buscando ? '#FEF3C7' : '#DCFCE7',
-            color: buscando ? '#92400E' : '#166534',
-          }}
-        />
+        <Box display="flex" alignItems="center" gap={0.8}>
+          <Chip
+            size="small"
+            label={usarGoogleMaps && googleMapsLoaded && !loadError ? 'Google Maps API' : 'Leaflet / OSM'}
+            sx={{
+              fontWeight: 800,
+              fontSize: '0.65rem',
+              bgcolor: usarGoogleMaps && googleMapsLoaded && !loadError ? '#E0E7FF' : '#F1F5F9',
+              color: usarGoogleMaps && googleMapsLoaded && !loadError ? '#3730A3' : '#475569',
+              height: 20
+            }}
+          />
+          <Chip
+            size="small"
+            label={buscando ? 'Buscando Coordenadas...' : origemTexto}
+            sx={{
+              fontWeight: 800,
+              fontSize: '0.7rem',
+              bgcolor: buscando ? '#FEF3C7' : '#DCFCE7',
+              color: buscando ? '#92400E' : '#166534',
+              height: 20
+            }}
+          />
+        </Box>
       </Box>
 
-      {/* Container do Mapa Leaflet com Interação por Toque e Arraste */}
-      <Box
-        ref={mapContainerRef}
-        sx={{
-          width: '100%',
-          height: 180,
-          bgcolor: '#E2E8F0',
-          cursor: 'crosshair',
-          '& .leaflet-container': {
+      {/* Renderização Híbrida: Google Maps ou Leaflet */}
+      {usarGoogleMaps && googleMapsLoaded && !loadError ? (
+        <GoogleMap
+          mapContainerStyle={{ width: '100%', height: '180px' }}
+          center={{ lat, lng }}
+          zoom={16}
+          onClick={handleGoogleMapClick}
+          options={{
+            disableDefaultUI: false,
+            zoomControl: true,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: false,
+          }}
+        >
+          <MarkerF
+            position={{ lat, lng }}
+            draggable={true}
+            onDragEnd={handleGoogleMarkerDragEnd}
+            title={label || 'Local da Partida'}
+          />
+        </GoogleMap>
+      ) : (
+        <Box
+          ref={mapContainerRef}
+          sx={{
             width: '100%',
-            height: '100%',
-            fontFamily: 'inherit',
-          },
-        }}
-      />
+            height: 180,
+            bgcolor: '#E2E8F0',
+            cursor: 'crosshair',
+            '& .leaflet-container': {
+              width: '100%',
+              height: '100%',
+              fontFamily: 'inherit',
+            },
+          }}
+        />
+      )}
 
       {/* Rodapé com Dica de Arraste e Endereço */}
       <Box

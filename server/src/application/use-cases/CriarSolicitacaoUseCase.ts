@@ -1,6 +1,6 @@
 import { Solicitacao } from '../../domain/entities/Solicitacao';
 import { StatusSolicitacaoEnum } from '../../domain/enums/StatusEnums';
-import { IPartidaRepository, ISolicitacaoRepository } from '../repositories/IRepositories';
+import { IPartidaRepository, ISolicitacaoRepository, IUsuarioRepository } from '../repositories/IRepositories';
 import { randomUUID } from 'crypto';
 
 export interface CriarSolicitacaoInput {
@@ -12,7 +12,8 @@ export interface CriarSolicitacaoInput {
 export class CriarSolicitacaoUseCase {
   constructor(
     private solicitacaoRepo: ISolicitacaoRepository,
-    private partidaRepo: IPartidaRepository
+    private partidaRepo: IPartidaRepository,
+    private usuarioRepo?: IUsuarioRepository
   ) {}
 
   public async execute(input: CriarSolicitacaoInput): Promise<Solicitacao> {
@@ -23,6 +24,20 @@ export class CriarSolicitacaoUseCase {
 
     if (partida.organizadorId === input.usuarioId) {
       throw new Error('Você já é o organizador desta partida.');
+    }
+
+    // Regra RN06: Espaço Seguro Feminino
+    if (partida.filtroGenero === 'Feminino' && this.usuarioRepo) {
+      const solicitante = await this.usuarioRepo.buscarPorId(input.usuarioId);
+      if (solicitante && solicitante.genero !== 'Feminino') {
+        throw new Error('Esta partida é exclusiva para o público feminino (RN06 - Espaço Seguro Feminino).');
+      }
+    }
+
+    // Regra RN01: Anti-conflito de Agenda do Atleta
+    const temConflito = await this.solicitacaoRepo.verificarConflitoHorario(input.usuarioId, partida.dataHora);
+    if (temConflito) {
+      throw new Error('Você já possui uma partida confirmada neste mesmo intervalo de horário (RN01 - Anti-conflito de Agenda).');
     }
 
     const solicitacaoExistente = await this.solicitacaoRepo.buscarPorPartidaEUsuario(

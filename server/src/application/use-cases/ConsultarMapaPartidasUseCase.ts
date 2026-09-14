@@ -11,11 +11,20 @@ export interface ConsultarMapaInput {
 
 export interface PartidaMapaOutput {
   id: string;
+  organizadorId: string;
   esporte: string;
   descricao?: string | null;
   dataHora: Date;
+  duracaoMinutos?: number;
   maxVagas: number;
   vagasPreenchidas: number;
+  filtroGenero?: string | null;
+  filtroNivel?: string | null;
+  formatoJogo?: string;
+  tipoLocal?: string;
+  taxaCampo?: number;
+  taxaJuiz?: number;
+  statusPartida?: string;
   bairro: string;
   cidade: string;
   // Regra RN02 (LGPD): Endereço e Coordenadas exatas são omitidos ou ofuscados para não confirmados
@@ -29,7 +38,7 @@ export class ConsultarMapaPartidasUseCase {
   constructor(private partidaRepo: IPartidaRepository) {}
 
   public async execute(input: ConsultarMapaInput): Promise<PartidaMapaOutput[]> {
-    const raioMetros = Math.min(Math.max(input.raioKm, 1), 5) * 1000;
+    const raioMetros = Math.min(Math.max(input.raioKm, 1), 30) * 1000;
     const partidas = await this.partidaRepo.buscarPorRaio(input.lat, input.lng, raioMetros, input.esporte, input.endereco);
 
     return partidas.map((partida) => {
@@ -37,11 +46,20 @@ export class ConsultarMapaPartidasUseCase {
 
       return {
         id: partida.id,
+        organizadorId: partida.organizadorId,
         esporte: partida.esporte,
         descricao: partida.descricao,
         dataHora: partida.dataHora,
+        duracaoMinutos: partida.duracaoMinutos,
         maxVagas: partida.maxVagas,
         vagasPreenchidas: partida.vagasPreenchidas,
+        filtroGenero: partida.filtroGenero,
+        filtroNivel: partida.filtroNivel,
+        formatoJogo: partida.formatoJogo,
+        tipoLocal: partida.tipoLocal,
+        taxaCampo: partida.taxaCampo,
+        taxaJuiz: partida.taxaJuiz,
+        statusPartida: partida.statusPartida,
         bairro: partida.bairro,
         cidade: partida.cidade,
         // Aplicação da RN02: Endereço completo só é visível se for o organizador

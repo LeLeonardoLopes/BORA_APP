@@ -9,6 +9,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <title>Bora! App — Social Tech Esportiva</title>
+    <style>
+      /* Blindagem contra autofill escuro do Chrome/Edge/Firefox */
+      .auth-input-white,
+      .auth-input-white input,
+      .auth-input-white .MuiOutlinedInput-root {
+        background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
+        color-scheme: light !important;
+      }
+      .auth-input-white input:-webkit-autofill,
+      .auth-input-white input:-webkit-autofill:hover,
+      .auth-input-white input:-webkit-autofill:focus,
+      .auth-input-white input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+        box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+        -webkit-text-fill-color: #0F172A !important;
+        color: #0F172A !important;
+        caret-color: #0F172A !important;
+        border-radius: inherit !important;
+        transition: background-color 50000s ease-in-out 0s !important;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

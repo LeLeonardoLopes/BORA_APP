@@ -47,6 +47,93 @@ export function validarCPFFrontend(cpf: string): boolean {
   return dig2 === parseInt(limpo.charAt(10), 10);
 }
 
+const inputAuthStyle = {
+  bgcolor: '#FFFFFF !important',
+  backgroundColor: '#FFFFFF !important',
+  borderRadius: 2.5,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+  colorScheme: 'light !important',
+  '& .MuiOutlinedInput-root': {
+    bgcolor: '#FFFFFF !important',
+    backgroundColor: '#FFFFFF !important',
+    borderRadius: 2.5,
+    colorScheme: 'light !important',
+    '& fieldset': { border: 'none !important' },
+    '&:hover fieldset': { border: 'none !important' },
+    '&.Mui-focused fieldset': { border: '2px solid #FFD700 !important' },
+    '& input': {
+      bgcolor: '#FFFFFF !important',
+      backgroundColor: '#FFFFFF !important',
+      color: '#0F172A !important',
+      WebkitTextFillColor: '#0F172A !important',
+      colorScheme: 'light !important',
+      textAlign: 'center',
+      fontWeight: 800,
+    },
+    '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus, & input:-webkit-autofill:active': {
+      WebkitBoxShadow: '0 0 0 1000px #FFFFFF inset !important',
+      boxShadow: '0 0 0 1000px #FFFFFF inset !important',
+      WebkitTextFillColor: '#0F172A !important',
+      color: '#0F172A !important',
+      caretColor: '#0F172A !important',
+      borderRadius: 'inherit !important',
+      transition: 'background-color 50000s ease-in-out 0s !important',
+    },
+  },
+  '& .MuiInputBase-input': {
+    fontWeight: 800,
+    color: '#0F172A !important',
+    WebkitTextFillColor: '#0F172A !important',
+    textAlign: 'center',
+    py: 1.8,
+    colorScheme: 'light !important',
+  },
+  '& input': {
+    bgcolor: '#FFFFFF !important',
+    backgroundColor: '#FFFFFF !important',
+    color: '#0F172A !important',
+    WebkitTextFillColor: '#0F172A !important',
+    colorScheme: 'light !important',
+    textAlign: 'center',
+    fontWeight: 800,
+  },
+  '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus, & input:-webkit-autofill:active': {
+    WebkitBoxShadow: '0 0 0 1000px #FFFFFF inset !important',
+    boxShadow: '0 0 0 1000px #FFFFFF inset !important',
+    WebkitTextFillColor: '#0F172A !important',
+    color: '#0F172A !important',
+    caretColor: '#0F172A !important',
+    borderRadius: 'inherit !important',
+    transition: 'background-color 50000s ease-in-out 0s !important',
+  },
+  '& input::placeholder': {
+    color: '#64748B !important',
+    opacity: '1 !important',
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+};
+
+const selectAuthStyle = {
+  bgcolor: '#FFFFFF !important',
+  backgroundColor: '#FFFFFF !important',
+  borderRadius: 2.5,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+  '& .MuiOutlinedInput-root': {
+    bgcolor: '#FFFFFF !important',
+    backgroundColor: '#FFFFFF !important',
+    borderRadius: 2.5,
+  },
+  '& .MuiSelect-select': {
+    py: 1.8,
+    textAlign: 'center',
+    fontWeight: 800,
+    color: '#0F172A !important',
+  },
+  '& .MuiOutlinedInput-notchedOutline': { border: 'none !important' },
+  '& .MuiSelect-icon': { color: '#0F172A !important' },
+};
+
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [modo, setModo] = useState<'login' | 'cadastro'>('login');
   const [etapaCadastro, setEtapaCadastro] = useState<'formulario' | 'codigo'>('formulario');
@@ -187,6 +274,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
       sx={{ 
         minHeight: '100vh', 
         bgcolor: '#0066FF',
+        colorScheme: 'light',
         display: 'flex', 
         flexDirection: 'column', 
         justifyContent: 'center', 
@@ -229,14 +317,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               type="email" 
               fullWidth 
               required 
+              className="auth-input-white"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 800, color: '#0F172A', textAlign: 'center', py: 1.8 },
-              }}
+              sx={inputAuthStyle}
             />
 
             <TextField 
@@ -244,14 +328,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               type="password" 
               fullWidth 
               required 
+              className="auth-input-white"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 800, color: '#0F172A', textAlign: 'center', py: 1.8 },
-              }}
+              sx={inputAuthStyle}
             />
 
             <Button 
@@ -347,48 +427,37 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               placeholder="Nome Completo" 
               fullWidth 
               required 
+              className="auth-input-white"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 700, color: '#0F172A', textAlign: 'center', py: 1.8 },
-              }}
+              sx={inputAuthStyle}
             />
 
             <TextField 
               placeholder="CPF (000.000.000-00)" 
               fullWidth 
+              className="auth-input-white"
               value={cpf}
               onChange={handleCpfChange}
               error={cpf.length > 0 && !cpfValido}
               helperText={cpf.length > 0 && !cpfValido ? 'CPF inválido' : undefined}
               sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 700, color: '#0F172A', textAlign: 'center', py: 1.8 },
+                ...inputAuthStyle,
                 '& .MuiFormHelperText-root': { color: '#FFD700', fontWeight: 700, textAlign: 'center' }
               }}
             />
 
-            <FormControl fullWidth sx={{ bgcolor: '#FFFFFF', borderRadius: 2 }}>
+            <FormControl fullWidth sx={{ borderRadius: 2.5 }}>
               <Select
                 value={genero}
                 onChange={(e) => setGenero(e.target.value as any)}
                 displayEmpty
-                sx={{
-                  fontWeight: 700,
-                  color: '#0F172A',
-                  textAlign: 'center',
-                  '& .MuiSelect-select': { py: 1.8, textAlign: 'center' },
-                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
-                }}
+                className="auth-input-white"
+                sx={selectAuthStyle}
               >
-                <MenuItem value="Feminino" sx={{ fontWeight: 700 }}>👩 Gênero: Feminino (Proteção RN06)</MenuItem>
-                <MenuItem value="Masculino" sx={{ fontWeight: 700 }}>👨 Gênero: Masculino</MenuItem>
-                <MenuItem value="Outro" sx={{ fontWeight: 700 }}>🧑 Gênero: Outro</MenuItem>
+                <MenuItem value="Feminino" sx={{ fontWeight: 700 }}>Feminino</MenuItem>
+                <MenuItem value="Masculino" sx={{ fontWeight: 700 }}>Masculino</MenuItem>
+                <MenuItem value="Outro" sx={{ fontWeight: 700 }}>Outro</MenuItem>
               </Select>
             </FormControl>
 
@@ -397,14 +466,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               type="email" 
               fullWidth 
               required 
+              className="auth-input-white"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 800, color: '#0F172A', textAlign: 'center', py: 1.8 },
-              }}
+              sx={inputAuthStyle}
             />
 
             <TextField 
@@ -412,14 +477,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               type="password" 
               fullWidth 
               required 
+              className="auth-input-white"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 800, color: '#0F172A', textAlign: 'center', py: 1.8 },
-              }}
+              sx={inputAuthStyle}
             />
 
             {/* CHECKLIST DE FORÇA DE SENHA */}
@@ -582,15 +643,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               placeholder="0 0 0 0 0 0" 
               fullWidth 
               required 
+              className="auth-input-white"
               inputProps={{ maxLength: 6, style: { letterSpacing: 8, textAlign: 'center', fontSize: '1.4rem' } }}
               value={codigoOtp}
               onChange={(e) => setCodigoOtp(e.target.value.replace(/\D/g, ''))}
-              sx={{
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiInputBase-input': { fontWeight: 900, color: '#0F172A', py: 1.8 },
-              }}
+              sx={inputAuthStyle}
             />
 
             <Button 
