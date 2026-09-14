@@ -27,9 +27,9 @@ export class CriarSolicitacaoUseCase {
     }
 
     // Regra RN06: Espaço Seguro Feminino
-    if (partida.filtroGenero === 'Feminino' && this.usuarioRepo) {
+    if ((partida.filtroGenero === 'Feminino' || (partida as any).espacoSeguroFeminino) && this.usuarioRepo) {
       const solicitante = await this.usuarioRepo.buscarPorId(input.usuarioId);
-      if (solicitante && solicitante.genero !== 'Feminino') {
+      if (solicitante && String(solicitante.genero || '').toLowerCase() !== 'feminino') {
         throw new Error('Esta partida é exclusiva para o público feminino (RN06 - Espaço Seguro Feminino).');
       }
     }

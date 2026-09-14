@@ -53,6 +53,7 @@ export class PartidaController {
       const lng = Number(query.lng) || -47.4005;
       const radius = Number(query.radius) || 5;
       const endereco = query.endereco || query.bairro || query.q;
+      const generoUsuario = query.genero || (req.user as any)?.genero;
 
       const partidas = await this.consultarMapaPartidasUseCase.execute({
         lat,
@@ -61,6 +62,7 @@ export class PartidaController {
         esporte: query.sport,
         endereco: typeof endereco === 'string' ? endereco : undefined,
         usuarioAutenticadoId: (req.user as any)?.id || 'anonymous',
+        generoUsuario,
       });
 
       return reply.status(200).send({ data: partidas });

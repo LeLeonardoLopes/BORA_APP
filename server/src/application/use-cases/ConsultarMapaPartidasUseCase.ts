@@ -7,6 +7,7 @@ export interface ConsultarMapaInput {
   esporte?: string;
   endereco?: string;
   usuarioAutenticadoId: string;
+  generoUsuario?: string;
 }
 
 export interface PartidaMapaOutput {
@@ -41,7 +42,17 @@ export class ConsultarMapaPartidasUseCase {
     const raioMetros = Math.min(Math.max(input.raioKm, 1), 30) * 1000;
     const partidas = await this.partidaRepo.buscarPorRaio(input.lat, input.lng, raioMetros, input.esporte, input.endereco);
 
-    return partidas.map((partida) => {
+    const partidasVisiveis = partidas.filter((partida) => {
+      // Regra RN06 (Espaço Seguro Feminino): Homens não têm acesso a partidas exclusivas para mulheres
+      const isFeminina = partida.filtroGenero === 'Feminino' || (partida as any).espacoSeguroFeminino;
+      const isHomem = String(input.generoUsuario || '').toLowerCase() === 'masculino';
+      if (isFeminina && isHomem) {
+        return false;
+      }
+      return true;
+    });
+
+    return partidasVisiveis.map((partida) => {
       const isOrganizador = partida.organizadorId === input.usuarioAutenticadoId;
 
       return {
