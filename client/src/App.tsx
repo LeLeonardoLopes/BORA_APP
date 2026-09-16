@@ -60,6 +60,9 @@ import { RatingScreen } from './screens/RatingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { MyMatchesScreen } from './screens/MyMatchesScreen';
 import { api } from './services/api';
+import { geocodificarEndereco, obterLocalizacaoAtualGPS } from './services/geocodingService';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 
 export const MODALIDADES_FILTRO = [
   'Todos',
@@ -132,6 +135,38 @@ export const App: React.FC = () => {
 
   // ESTADOS DE FILTRO
   const [termoBusca, setTermoBusca] = useState<string>('');
+  const [enderecoBusca, setEnderecoBusca] = useState<string>('');
+  const [coordBusca, setCoordBusca] = useState<{ lat: number; lng: number; origem?: string; displayName?: string }>({
+    lat: -20.5388,
+    lng: -47.4005,
+    origem: 'fallback_centro',
+  });
+  const [buscandoEndereco, setBuscandoEndereco] = useState<boolean>(false);
+
+  const buscarPorEndereco = useCallback(async () => {
+    if (!enderecoBusca.trim()) return;
+    setBuscandoEndereco(true);
+    try {
+      const coords = await geocodificarEndereco(enderecoBusca.trim());
+      setCoordBusca(coords);
+    } finally {
+      setBuscandoEndereco(false);
+    }
+  }, [enderecoBusca]);
+
+  const usarMinhaLocalizacaoAtual = useCallback(async () => {
+    setBuscandoEndereco(true);
+    try {
+      const coords = await obterLocalizacaoAtualGPS();
+      setCoordBusca(coords);
+      setEnderecoBusca('');
+    } catch (e) {
+      // Se o usuário negar a permissão de GPS, mantém a última busca/base atual.
+    } finally {
+      setBuscandoEndereco(false);
+    }
+  }, []);
+
   const [filtroFormato, setFiltroFormato] = useState<'Todos' | 'Avulso' | 'Amistoso_Times'>('Todos');
   const [filtroEsporte, setFiltroEsporte] = useState<string>('Todos');
   const [filtroTipoLocal, setFiltroTipoLocal] = useState<'Todos' | 'Publica' | 'Privada'>('Todos');
@@ -153,9 +188,10 @@ export const App: React.FC = () => {
     isLoading: carregandoPartidas,
     refetch: carregarPartidasDoBanco,
   } = useQuery<any[]>({
-    queryKey: ['matches', raioKm],
+    queryKey: ['matches', raioKm, coordBusca.lat, coordBusca.lng],
     queryFn: async () => {
-      const response = await api.get(`/matches?lat=-20.5388&lng=-47.4005&radius=${raioKm}`);
+      const generoParam = usuarioLogado?.genero ? `&genero=${encodeURIComponent(usuarioLogado.genero)}` : '';
+      const response = await api.get(`/matches?lat=${coordBusca.lat}&lng=${coordBusca.lng}&radius=${raioKm}${generoParam}`);
       if (response.data && Array.isArray(response.data.data)) {
         return response.data.data.map((p: any) => {
           const isAmistoso = p.formatoJogo === 'Amistoso_Times' || p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
@@ -569,11 +605,58 @@ export const App: React.FC = () => {
                 />
               </Box>
 
-              {/* BARRA DE PESQUISA RÁPIDA POR BAIRRO / LOCAL */}
+              {/* CAMPO DE ENDEREÇO: busca partidas a partir da localização real do usuário */}
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Buscar bairro, arena ou esporte..."
+                placeholder="Meu endereço (rua, bairro ou CEP) para buscar por perto..."
+                value={enderecoBusca}
+                onChange={(e) => setEnderecoBusca(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') buscarPorEndereco();
+                }}
+                helperText={
+                  coordBusca.origem === 'gps_dispositivo'
+                    ? '📍 Usando sua localização atual (GPS)'
+                    : coordBusca.origem && coordBusca.origem !== 'fallback_centro'
+                      ? `📍 Buscando a partir de: ${coordBusca.displayName || enderecoBusca || 'endereço informado'}`
+                      : '📍 Buscando a partir do centro de Franca/SP (informe seu endereço para refinar)'
+                }
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LocationOnIcon fontSize="small" sx={{ color: isDark ? '#60A5FA' : '#0066FF' }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Usar minha localização atual (GPS)">
+                        <span>
+                          <IconButton size="small" onClick={usarMinhaLocalizacaoAtual} disabled={buscandoEndereco}>
+                            <MyLocationIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <IconButton size="small" onClick={buscarPorEndereco} disabled={buscandoEndereco || !enderecoBusca.trim()}>
+                        <Search size={18} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    borderRadius: 3,
+                    bgcolor: 'background.paper',
+                    fontWeight: 600,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    mb: 2
+                  }
+                }}
+              />
+
+              {/* BARRA DE PESQUISA RÁPIDA POR BAIRRO / LOCAL (filtra dentro do resultado já carregado) */}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Filtrar por bairro, arena ou esporte..."
                 value={termoBusca}
                 onChange={(e) => setTermoBusca(e.target.value)}
                 InputProps={{

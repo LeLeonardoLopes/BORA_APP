@@ -24,6 +24,7 @@ export interface RegistrarUsuarioOutput {
     nome: string;
     email: string;
     cpf?: string | null;
+    genero: string;
     notaMedia: number;
     fotoUrl?: string | null;
   };
@@ -101,7 +102,7 @@ export class RegistrarUsuarioUseCase {
     });
 
     const usuarioCriado = await this.usuarioRepo.criar(novoUsuario);
-    const token = this.tokenService.gerarToken({ id: usuarioCriado.id, email: usuarioCriado.email });
+    const token = this.tokenService.gerarToken({ id: usuarioCriado.id, email: usuarioCriado.email, genero: usuarioCriado.genero });
 
     return {
       token,
@@ -110,6 +111,7 @@ export class RegistrarUsuarioUseCase {
         nome: usuarioCriado.nome,
         email: usuarioCriado.email,
         cpf: usuarioCriado.cpf,
+        genero: usuarioCriado.genero,
         notaMedia: usuarioCriado.notaMedia,
         fotoUrl: usuarioCriado.fotoUrl,
       },

@@ -107,5 +107,5 @@ export interface IPasswordHasher {
 }
 
 export interface ITokenService {
-  gerarToken(payload: { id: string; email: string }): string;
+  gerarToken(payload: { id: string; email: string; genero?: string }): string;
 }

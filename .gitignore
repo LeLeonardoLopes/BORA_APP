@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 build/
 .env
@@ -11,3 +11,4 @@ yarn-error.log*
 Thumbs.db
 pgdata/
 coverage/
+~$*

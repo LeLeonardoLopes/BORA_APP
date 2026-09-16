@@ -12,6 +12,7 @@ export interface AutenticarUsuarioOutput {
     id: string;
     nome: string;
     email: string;
+    genero: string;
     raioBuscaKm: number;
     notaMedia: number;
     fotoUrl?: string | null;
@@ -50,7 +51,7 @@ export class AutenticarUsuarioUseCase {
       throw new Error('Credenciais inválidas.');
     }
 
-    const token = this.tokenService.gerarToken({ id: usuario.id, email: usuario.email });
+    const token = this.tokenService.gerarToken({ id: usuario.id, email: usuario.email, genero: usuario.genero });
 
     return {
       token,
@@ -58,6 +59,7 @@ export class AutenticarUsuarioUseCase {
         id: usuario.id,
         nome: usuario.nome,
         email: usuario.email,
+        genero: usuario.genero,
         raioBuscaKm: usuario.raioBuscaKm,
         notaMedia: usuario.notaMedia,
         fotoUrl: usuario.fotoUrl,

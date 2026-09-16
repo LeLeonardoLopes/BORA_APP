@@ -4,7 +4,7 @@ import { FastifyInstance } from 'fastify';
 export class FastifyJwtTokenService implements ITokenService {
   constructor(private fastifyApp: FastifyInstance) {}
 
-  public gerarToken(payload: { id: string; email: string }): string {
+  public gerarToken(payload: { id: string; email: string; genero?: string }): string {
     return this.fastifyApp.jwt.sign(payload);
   }
 }

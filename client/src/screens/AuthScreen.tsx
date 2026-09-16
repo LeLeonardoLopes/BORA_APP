@@ -136,7 +136,6 @@ const selectAuthStyle = {
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [modo, setModo] = useState<'login' | 'cadastro'>('login');
-  const [etapaCadastro, setEtapaCadastro] = useState<'formulario' | 'codigo'>('formulario');
 
   // Campos de Cadastro / Login
   const [nome, setNome] = useState('');
@@ -144,8 +143,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [genero, setGenero] = useState<'Feminino' | 'Masculino'>('Feminino');
-  const [codigoOtp, setCodigoOtp] = useState('');
-  const [codigoDev, setCodigoDev] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,8 +162,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     setCpf(formatado);
   };
 
-  // Passo 1 do Cadastro: Enviar Código de Verificação
-  const handleAvancarParaCodigo = async (e: React.FormEvent) => {
+  // Cadastro Direto (1-passo)
+  const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -182,49 +179,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     }
 
     if (!senhaValida) {
-      setError('A senha não cumpre todos os requisitos de segurança.');
+      setError('A senha deve ter no mínimo 6 caracteres, conter pelo menos 1 número e 1 caractere especial.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/send-code', {
-        email: emailLimpo,
-        cpf: cpf.trim() || undefined,
-      });
-
-      setCodigoDev(res.data.codigoDev || null);
-      setEtapaCadastro('codigo');
-    } catch (err: any) {
-      const msg = err.response?.data?.error || 'Erro ao enviar código de verificação. Verifique seu e-mail.';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Passo 2 do Cadastro: Confirmar Código e Criar Conta
-  const handleConfirmarCadastro = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (codigoOtp.trim().length !== 6) {
-      setError('Digite o código completo de 6 dígitos.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const emailLimpo = email.trim().toLowerCase();
       const res = await api.post('/auth/register', {
         nome: nome.trim(),
         cpf: cpf.trim() || undefined,
         email: emailLimpo,
         senha,
         genero,
-        codigoVerificacao: codigoOtp.trim(),
         raioBuscaKm: 5,
       });
 
@@ -232,7 +199,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
       localStorage.setItem('@bora:user', JSON.stringify(res.data.usuario));
       onLoginSuccess(res.data.token, res.data.usuario);
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Código incorreto ou expirado. Tente novamente.';
+      const msg = err.response?.data?.error || 'Erro ao realizar cadastro. Verifique os dados ou se o servidor está ativo.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -297,7 +264,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               textTransform: 'uppercase'
             }}
           >
-            {modo === 'login' ? 'LOGIN' : (etapaCadastro === 'formulario' ? 'CRIAR UMA CONTA' : 'CONFIRMAR E-MAIL')}
+            {modo === 'login' ? 'LOGIN' : 'CRIAR UMA CONTA'}
           </Typography>
         </Box>
 
@@ -408,7 +375,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                 sx={{ color: '#FFFFFF', cursor: 'pointer', fontWeight: 600 }}
                 onClick={() => {
                   setModo('cadastro');
-                  setEtapaCadastro('formulario');
                   setError(null);
                 }}
               >
@@ -419,10 +385,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         )}
 
         {/* ------------------------------------------------------------- */}
-        {/* 2. MODO: CADASTRO - PASSO 1 (FORMULÁRIO DE DADOS + CPF)        */}
+        {/* 2. MODO: CADASTRO DIRETO                                       */}
         {/* ------------------------------------------------------------- */}
-        {modo === 'cadastro' && etapaCadastro === 'formulario' && (
-          <Box component="form" onSubmit={handleAvancarParaCodigo} display="flex" flexDirection="column" gap={2}>
+        {modo === 'cadastro' && (
+          <Box component="form" onSubmit={handleCadastro} display="flex" flexDirection="column" gap={2}>
             <TextField 
               placeholder="Nome Completo" 
               fullWidth 
@@ -534,7 +500,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                 '&:hover': { backgroundColor: '#F8FAFC !important' }
               }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'AVANÇAR (ENVIAR CÓDIGO)'}
+              {loading ? <CircularProgress size={24} color="inherit" /> : 'CADASTRAR'}
             </Button>
 
             {/* BOTÕES SOCIAIS */}
@@ -596,97 +562,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
               >
                 Já tem uma conta? Faça login aqui!
               </Typography>
-            </Box>
-          </Box>
-        )}
-
-        {/* ------------------------------------------------------------- */}
-        {/* 3. MODO: CADASTRO - PASSO 2 (DIGITAÇÃO DO CÓDIGO OTP)          */}
-        {/* ------------------------------------------------------------- */}
-        {modo === 'cadastro' && etapaCadastro === 'codigo' && (
-          <Box component="form" onSubmit={handleConfirmarCadastro} display="flex" flexDirection="column" gap={2.5}>
-            <Box 
-              sx={{ 
-                bgcolor: 'rgba(255,255,255,0.15)', 
-                p: 2.5, 
-                borderRadius: 3, 
-                textAlign: 'center',
-                backdropFilter: 'blur(6px)' 
-              }}
-            >
-              <MailCheck size={36} color="#FFD700" style={{ margin: '0 auto 8px auto' }} />
-              <Typography variant="body1" sx={{ color: '#FFFFFF', fontWeight: 700, mb: 0.5 }}>
-                Verifique sua caixa de entrada
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#E2E8F0', display: 'block' }}>
-                Enviamos um código de 6 dígitos para:
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#FFD700', fontWeight: 800, mt: 0.5 }}>
-                {email}
-              </Typography>
-            </Box>
-
-            {/* AVISO DO CÓDIGO NO AMBIENTE DE TESTE / DEV */}
-            {codigoDev && (
-              <Alert 
-                severity="info" 
-                sx={{ 
-                  borderRadius: 2, 
-                  bgcolor: '#EFF6FF', 
-                  color: '#1E40AF',
-                  fontWeight: 700,
-                  fontSize: '0.88rem' 
-                }}
-              >
-                💡 Código de Teste: <strong>{codigoDev}</strong>
-              </Alert>
-            )}
-
-            <TextField 
-              placeholder="0 0 0 0 0 0" 
-              fullWidth 
-              required 
-              className="auth-input-white"
-              inputProps={{ maxLength: 6, style: { letterSpacing: 8, textAlign: 'center', fontSize: '1.4rem' } }}
-              value={codigoOtp}
-              onChange={(e) => setCodigoOtp(e.target.value.replace(/\D/g, ''))}
-              sx={inputAuthStyle}
-            />
-
-            <Button 
-              type="submit" 
-              disabled={loading || codigoOtp.length !== 6}
-              sx={{ 
-                backgroundColor: '#FFFFFF !important', 
-                color: '#000000 !important', 
-                py: 1.8, 
-                fontWeight: 900, 
-                fontSize: '1rem',
-                borderRadius: 2.5,
-                boxShadow: '0 4px 14px rgba(0,0,0,0.12) !important',
-                '&:disabled': { opacity: 0.6, backgroundColor: '#E2E8F0 !important' },
-                '&:hover': { backgroundColor: '#F8FAFC !important' }
-              }}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'CONCLUIR CADASTRO'}
-            </Button>
-
-            <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-              <Button 
-                startIcon={<ArrowLeft size={16} />}
-                onClick={() => setEtapaCadastro('formulario')}
-                sx={{ color: '#FFFFFF', fontWeight: 700, textTransform: 'none' }}
-              >
-                Alterar dados
-              </Button>
-
-              <Button 
-                onClick={handleAvancarParaCodigo}
-                disabled={loading}
-                sx={{ color: '#FFD700', fontWeight: 800, textTransform: 'none' }}
-              >
-                Reenviar código
-              </Button>
             </Box>
           </Box>
         )}
