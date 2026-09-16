@@ -39,7 +39,7 @@ export class CriarPartidaUseCase {
         duracao
       );
       if (temConflito) {
-        throw new Error('Você já possui uma partida agendada neste mesmo intervalo de horário (RN01 - Anti-conflito de Agenda).');
+        throw new Error('VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO (RN01 - Anti-conflito de Agenda).');
       }
     }
 

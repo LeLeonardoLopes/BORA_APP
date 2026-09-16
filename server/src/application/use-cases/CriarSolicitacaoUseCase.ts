@@ -37,7 +37,7 @@ export class CriarSolicitacaoUseCase {
     // Regra RN01: Anti-conflito de Agenda do Atleta
     const temConflito = await this.solicitacaoRepo.verificarConflitoHorario(input.usuarioId, partida.dataHora);
     if (temConflito) {
-      throw new Error('Você já possui uma partida confirmada neste mesmo intervalo de horário (RN01 - Anti-conflito de Agenda).');
+      throw new Error('VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO (RN01 - Anti-conflito de Agenda).');
     }
 
     const solicitacaoExistente = await this.solicitacaoRepo.buscarPorPartidaEUsuario(

@@ -387,26 +387,53 @@ export const App: React.FC = () => {
 
     try {
       await api.post('/matches', partidaFormatada);
-    } catch (err) {
-      console.warn('Erro ao sincronizar nova partida na API:', err);
+      setToastMensagem(
+        novaPartida.formatoJogo === 'Amistoso_Times' 
+          ? 'Amistoso publicado! Aguardando equipes adversárias de Franca desafiarem seu time.' 
+          : 'Partida aberta publicada com sucesso!'
+      );
+    } catch (err: any) {
+      const msgErro = err.response?.data?.error || err.message || 'Erro ao criar partida.';
+      setToastMensagem(msgErro);
     }
 
     queryClient.invalidateQueries({ queryKey: ['matches'] });
-
-    setToastMensagem(
-      novaPartida.formatoJogo === 'Amistoso_Times' 
-        ? 'Amistoso publicado! Aguardando equipes adversárias de Franca desafiarem seu time.' 
-        : 'Partida aberta publicada com sucesso!'
-    );
   };
 
   const handleSolicitarVaga = async (id: string) => {
+    const partidaDesejada = partidas.find((p) => p.id === id);
+    if (partidaDesejada && partidaDesejada.dataHora) {
+      const inicioNova = new Date(partidaDesejada.dataHora).getTime();
+      const duracaoMs = (Number(partidaDesejada.duracaoMinutos) || 90) * 60 * 1000;
+      const fimNova = inicioNova + duracaoMs;
+
+      // Verifica se o usuário já tem outra partida ativa no mesmo intervalo de horário
+      const conflito = partidas.find((p) => {
+        if (p.id === id) return false;
+        if (p.statusPartida === 'Cancelada' || p.statusPartida === 'Finalizada') return false;
+        const isMinha = (usuarioLogado?.id && (p.organizadorId === usuarioLogado.id || p.organizador_id === usuarioLogado.id)) || p.isOrganizador || p.isConfirmado;
+        if (!isMinha) return false;
+
+        const inicioExistente = new Date(p.dataHora).getTime();
+        if (isNaN(inicioExistente)) return false;
+        const fimExistente = inicioExistente + (Number(p.duracaoMinutos) || 90) * 60 * 1000;
+
+        return inicioNova < fimExistente && fimNova > inicioExistente;
+      });
+
+      if (conflito) {
+        setToastMensagem('VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO (RN01 - Anti-conflito de Agenda).');
+        return;
+      }
+    }
+
     try {
       await api.post(`/matches/${id}/requests`, { usuarioId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101' });
-    } catch (e) {
-      console.warn('Fallback de solicitação:', e);
+      setToastMensagem('Solicitação enviada com sucesso! O organizador receberá a notificação para aprovação.');
+    } catch (e: any) {
+      const msgErro = e.response?.data?.error || 'Erro ao solicitar vaga.';
+      setToastMensagem(msgErro);
     }
-    setToastMensagem('Solicitação enviada com sucesso! O organizador receberá a notificação para aprovação.');
   };
 
   const handleMarcarAmistoso = (id: string) => {
@@ -425,6 +452,11 @@ export const App: React.FC = () => {
   const handleFinalizarPartida = (id: string) => {
     queryClient.invalidateQueries({ queryKey: ['matches'] });
     setToastMensagem('🏁 Partida finalizada com sucesso! O mural está em modo somente leitura.');
+  };
+
+  const handleCancelarPartida = (id: string) => {
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
+    setToastMensagem('🚫 Partida cancelada com sucesso!');
   };
 
   const isDark = tema === 'dark';
@@ -872,6 +904,7 @@ export const App: React.FC = () => {
                         onSolicitarVaga={handleSolicitarVaga}
                         onMarcarAmistoso={handleMarcarAmistoso}
                         onFinalizarPartida={handleFinalizarPartida}
+                        onCancelarPartida={handleCancelarPartida}
                       />
                     ))
                   )}
@@ -902,6 +935,7 @@ export const App: React.FC = () => {
                 onSuccess={handleCriarPartida}
                 meuTime={usuarioLogado?.meuTime}
                 usuarioLogado={usuarioLogado}
+                partidasExistentes={partidas}
               />
             </>
           )}

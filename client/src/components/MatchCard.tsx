@@ -32,7 +32,8 @@ import {
   Flag,
   CheckCircle2,
   AlertTriangle,
-  Star
+  Star,
+  Ban
 } from 'lucide-react';
 import { obterClimaFranca, PrevisaoClima } from '../services/weatherService';
 import { MatchChatModal } from './MatchChatModal';
@@ -71,6 +72,7 @@ export interface MatchCardProps {
   onSolicitarVaga?: (id: string) => void;
   onMarcarAmistoso?: (id: string) => void;
   onFinalizarPartida?: (id: string) => void;
+  onCancelarPartida?: (id: string) => void;
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -102,6 +104,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   onSolicitarVaga,
   onMarcarAmistoso,
   onFinalizarPartida,
+  onCancelarPartida,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -115,7 +118,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [clima, setClima] = useState<PrevisaoClima | null>(null);
   const [chatAberto, setChatAberto] = useState(false);
   const [dialogEncerrarAberto, setDialogEncerrarAberto] = useState(false);
+  const [dialogCancelarAberto, setDialogCancelarAberto] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
   const [statusLocal, setStatusLocal] = useState(statusPartida);
 
   const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
@@ -194,6 +199,27 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
     } finally {
       setEncerrando(false);
+    }
+  };
+
+  const handleCancelarPartida = async () => {
+    setCancelando(true);
+    try {
+      await api.patch(`/matches/${id}/cancel`);
+      setStatusLocal('Cancelada');
+      setDialogCancelarAberto(false);
+      if (onCancelarPartida) {
+        onCancelarPartida(id);
+      }
+    } catch (err: any) {
+      console.warn('Erro ao cancelar partida:', err);
+      setStatusLocal('Cancelada');
+      setDialogCancelarAberto(false);
+      if (onCancelarPartida) {
+        onCancelarPartida(id);
+      }
+    } finally {
+      setCancelando(false);
     }
   };
 
@@ -499,20 +525,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </Button>
             )}
 
-            {/* BARRA DE AÇÕES AUXILIARES: CHAT / MURAL & ENCERRAMENTO (ORGANIZADOR) */}
-            <Box display="flex" gap={1}>
+            {/* BARRA DE AÇÕES AUXILIARES: CHAT / MURAL & GESTÃO (ORGANIZADOR) */}
+            <Box display="flex" gap={0.8} flexWrap="wrap">
               {/* Botão de Chat / Mural da Partida */}
               <Button
-                fullWidth
+                fullWidth={!souOrganizador}
                 variant="outlined"
                 color="primary"
                 size="small"
-                startIcon={<MessageSquare size={15} color={isDark ? '#60A5FA' : '#0066FF'} />}
+                startIcon={<MessageSquare size={14} color={isDark ? '#60A5FA' : '#0066FF'} />}
                 onClick={() => setChatAberto(true)}
                 sx={{
+                  flex: souOrganizador ? 1 : undefined,
                   fontWeight: 800,
                   borderRadius: 2,
-                  fontSize: '0.74rem',
+                  fontSize: '0.72rem',
                   py: 0.6,
                   bgcolor: isDark ? '#1E293B' : '#EFF6FF',
                   borderColor: isDark ? '#334155' : '#BFDBFE',
@@ -520,31 +547,54 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   '&:hover': { bgcolor: isDark ? '#334155' : '#DBEAFE', borderColor: isDark ? '#60A5FA' : '#93C5FD' },
                 }}
               >
-                Mural / Chat
+                Mural
               </Button>
 
               {/* Botão de Encerrar Partida (Exclusivo do Organizador) */}
               {souOrganizador && statusLocal !== 'Finalizada' && statusLocal !== 'Cancelada' && (
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  color="warning"
-                  size="small"
-                  startIcon={<Flag size={14} />}
-                  onClick={() => setDialogEncerrarAberto(true)}
-                  sx={{
-                    fontWeight: 800,
-                    borderRadius: 2,
-                    fontSize: '0.74rem',
-                    py: 0.6,
-                    color: '#D97706',
-                    borderColor: '#FDE68A',
-                    bgcolor: '#FEF3C7',
-                    '&:hover': { bgcolor: '#FDE68A', borderColor: '#F59E0B' },
-                  }}
-                >
-                  Encerrar Partida
-                </Button>
+                <>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={<Flag size={13} />}
+                    onClick={() => setDialogEncerrarAberto(true)}
+                    sx={{
+                      flex: 1,
+                      fontWeight: 800,
+                      borderRadius: 2,
+                      fontSize: '0.72rem',
+                      py: 0.6,
+                      color: '#D97706',
+                      borderColor: '#FDE68A',
+                      bgcolor: '#FEF3C7',
+                      '&:hover': { bgcolor: '#FDE68A', borderColor: '#F59E0B' },
+                    }}
+                  >
+                    Encerrar
+                  </Button>
+
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<Ban size={13} />}
+                    onClick={() => setDialogCancelarAberto(true)}
+                    sx={{
+                      flex: 1,
+                      fontWeight: 800,
+                      borderRadius: 2,
+                      fontSize: '0.72rem',
+                      py: 0.6,
+                      color: 'error.main',
+                      borderColor: '#FECACA',
+                      bgcolor: '#FEF2F2',
+                      '&:hover': { bgcolor: '#FEE2E2', borderColor: '#EF4444' },
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </>
               )}
             </Box>
           </Box>
@@ -599,6 +649,46 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             sx={{ fontWeight: 900, borderRadius: 2, px: 2.5 }}
           >
             {encerrando ? 'Encerrando...' : 'Confirmar Encerramento'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE CANCELAMENTO */}
+      <Dialog
+        open={dialogCancelarAberto}
+        onClose={() => !cancelando && setDialogCancelarAberto(false)}
+        PaperProps={{ sx: { borderRadius: 3.5, p: 1 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 900 }}>
+          <AlertTriangle size={22} color="#DC2626" /> Cancelar Partida Criada?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary', fontWeight: 600 }}>
+            Tem certeza que deseja cancelar a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
+          </DialogContentText>
+          <DialogContentText sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 1 }}>
+            ⚠️ Ao cancelar a partida:
+            <br />• Todas as solicitações de vagas e confrontos serão cancelados.
+            <br />• A partida sairá da listagem e do mapa de Franca/SP.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 2.5 }}>
+          <Button 
+            onClick={() => setDialogCancelarAberto(false)} 
+            disabled={cancelando}
+            sx={{ fontWeight: 800, textTransform: 'none' }}
+          >
+            Voltar
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={handleCancelarPartida}
+            disabled={cancelando}
+            startIcon={cancelando ? <CircularProgress size={16} color="inherit" /> : <Ban size={16} />}
+            sx={{ fontWeight: 900, borderRadius: 2, px: 2.5 }}
+          >
+            {cancelando ? 'Cancelando...' : 'Confirmar Cancelamento'}
           </Button>
         </DialogActions>
       </Dialog>

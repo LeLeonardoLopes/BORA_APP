@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -34,7 +34,8 @@ import {
   ChevronUp, 
   History,
   CheckCircle2,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { geocodificarEndereco, obterLocalizacaoAtualGPS, consultarViaCep, Coordenadas } from '../services/geocodingService';
 import { CATALOGO_ARENAS_FRANCA, ArenaFranca } from '../data/francaArenas';
@@ -71,6 +72,7 @@ export interface CreateMatchModalProps {
   onSuccess: (novaPartida: any) => void;
   meuTime?: any;
   usuarioLogado?: any;
+  partidasExistentes?: any[];
 }
 
 export const MODALIDADES_COLETIVAS = [
@@ -94,6 +96,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   onSuccess,
   meuTime,
   usuarioLogado,
+  partidasExistentes = [],
 }) => {
   const [formatoJogo, setFormatoJogo] = useState<'Avulso' | 'Amistoso_Times'>('Avulso');
   const [tipoLocal, setTipoLocal] = useState<'Publica' | 'Privada'>('Publica');
@@ -298,8 +301,39 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
 
   const isMulher = String(usuarioLogado?.genero || '').toLowerCase() === 'feminino';
 
+  // Verificação em tempo real de Conflito de Horário (RN01 - Anti-conflito de Agenda)
+  const conflitoAgenda = useMemo(() => {
+    if (!dataHora) return null;
+    const inicioNova = new Date(dataHora).getTime();
+    if (isNaN(inicioNova)) return null;
+    const duracaoMs = (Number(duracaoMinutos) || 90) * 60 * 1000;
+    const fimNova = inicioNova + duracaoMs;
+
+    for (const p of partidasExistentes) {
+      if (!p) continue;
+      if (p.statusPartida === 'Cancelada' || p.statusPartida === 'Finalizada') continue;
+      
+      const isMinhaPartida = (usuarioLogado?.id && (p.organizadorId === usuarioLogado.id || p.organizador_id === usuarioLogado.id)) || p.isOrganizador || p.isConfirmado;
+      if (!isMinhaPartida) continue;
+
+      const inicioExistente = new Date(p.dataHora).getTime();
+      if (isNaN(inicioExistente)) continue;
+      const fimExistente = inicioExistente + (Number(p.duracaoMinutos) || 90) * 60 * 1000;
+
+      // Sobreposição de horários: inicioNova < fimExistente && fimNova > inicioExistente
+      if (inicioNova < fimExistente && fimNova > inicioExistente) {
+        return p;
+      }
+    }
+    return null;
+  }, [dataHora, duracaoMinutos, partidasExistentes, usuarioLogado]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (conflitoAgenda) {
+      return;
+    }
 
     // Registra e aprende a localização no sistema
     salvarLocalizacaoNoHistorico({
@@ -687,7 +721,30 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             InputLabelProps={{ shrink: true }}
             value={dataHora}
             onChange={(e) => setDataHora(e.target.value)}
+            error={Boolean(conflitoAgenda)}
           />
+
+          {/* ALERTA DE CONFLITO DE AGENDA (RN01) */}
+          {conflitoAgenda && (
+            <Alert 
+              severity="error" 
+              icon={<AlertTriangle size={20} color="#DC2626" />} 
+              sx={{ 
+                borderRadius: 2.5, 
+                bgcolor: '#FEF2F2', 
+                border: '1.5px solid #F87171',
+                color: '#991B1B',
+                '& .MuiAlert-message': { width: '100%' }
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, fontSize: '0.82rem', lineHeight: 1.3, mb: 0.5 }}>
+                ⚠️ VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', color: '#B91C1C', fontWeight: 600, lineHeight: 1.3 }}>
+                Conflito detectado com: <strong>{conflitoAgenda.esporte}</strong> ({new Date(conflitoAgenda.dataHora).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}) — <em>Regra RN01 (Anti-conflito de Agenda)</em>. Escolha outro dia ou horário para prosseguir.
+              </Typography>
+            </Alert>
+          )}
 
           {formatoJogo === 'Avulso' && (
             <TextField
@@ -912,7 +969,13 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
           <Button onClick={onClose} color="inherit" sx={{ fontWeight: 700 }}>
             Cancelar
           </Button>
-          <Button type="submit" variant="contained" color="primary" sx={{ fontWeight: 800, px: 3 }}>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary" 
+            disabled={Boolean(conflitoAgenda)}
+            sx={{ fontWeight: 800, px: 3 }}
+          >
             {formatoJogo === 'Amistoso_Times' ? 'PUBLICAR AMISTOSO' : 'PUBLICAR PARTIDA'}
           </Button>
         </DialogActions>
