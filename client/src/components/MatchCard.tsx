@@ -33,7 +33,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Star,
-  Ban
+  Ban,
+  Trash2
 } from 'lucide-react';
 import { obterClimaFranca, PrevisaoClima } from '../services/weatherService';
 import { MatchChatModal } from './MatchChatModal';
@@ -202,17 +203,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
   };
 
-  const handleCancelarPartida = async () => {
+  const handleExcluirPartida = async () => {
     setCancelando(true);
     try {
-      await api.patch(`/matches/${id}/cancel`);
+      try {
+        await api.delete(`/matches/${id}`);
+      } catch {
+        await api.patch(`/matches/${id}/cancel`);
+      }
       setStatusLocal('Cancelada');
       setDialogCancelarAberto(false);
       if (onCancelarPartida) {
         onCancelarPartida(id);
       }
     } catch (err: any) {
-      console.warn('Erro ao cancelar partida:', err);
+      console.warn('Erro ao excluir partida:', err);
       setStatusLocal('Cancelada');
       setDialogCancelarAberto(false);
       if (onCancelarPartida) {
@@ -578,7 +583,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     variant="outlined"
                     color="error"
                     size="small"
-                    startIcon={<Ban size={13} />}
+                    startIcon={<Trash2 size={13} />}
                     onClick={() => setDialogCancelarAberto(true)}
                     sx={{
                       flex: 1,
@@ -592,7 +597,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       '&:hover': { bgcolor: '#FEE2E2', borderColor: '#EF4444' },
                     }}
                   >
-                    Cancelar
+                    Excluir
                   </Button>
                 </>
               )}
@@ -653,21 +658,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </DialogActions>
       </Dialog>
 
-      {/* DIÁLOGO DE CONFIRMAÇÃO DE CANCELAMENTO */}
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <Dialog
         open={dialogCancelarAberto}
         onClose={() => !cancelando && setDialogCancelarAberto(false)}
         PaperProps={{ sx: { borderRadius: 3.5, p: 1 } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 900 }}>
-          <AlertTriangle size={22} color="#DC2626" /> Cancelar Partida Criada?
+          <AlertTriangle size={22} color="#DC2626" /> Excluir Partida Criada?
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: 'text.primary', fontWeight: 600 }}>
-            Tem certeza que deseja cancelar a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
+            Tem certeza que deseja excluir a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
           </DialogContentText>
           <DialogContentText sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 1 }}>
-            ⚠️ Ao cancelar a partida:
+            ⚠️ Ao excluir a partida:
             <br />• Todas as solicitações de vagas e confrontos serão cancelados.
             <br />• A partida sairá da listagem e do mapa de Franca/SP.
           </DialogContentText>
@@ -683,12 +688,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <Button 
             variant="contained" 
             color="error" 
-            onClick={handleCancelarPartida}
+            onClick={handleExcluirPartida}
             disabled={cancelando}
-            startIcon={cancelando ? <CircularProgress size={16} color="inherit" /> : <Ban size={16} />}
+            startIcon={cancelando ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
             sx={{ fontWeight: 900, borderRadius: 2, px: 2.5 }}
           >
-            {cancelando ? 'Cancelando...' : 'Confirmar Cancelamento'}
+            {cancelando ? 'Excluindo...' : 'Sim, Excluir Partida'}
           </Button>
         </DialogActions>
       </Dialog>

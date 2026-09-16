@@ -456,7 +456,7 @@ export const App: React.FC = () => {
 
   const handleCancelarPartida = (id: string) => {
     queryClient.invalidateQueries({ queryKey: ['matches'] });
-    setToastMensagem('🚫 Partida cancelada com sucesso!');
+    setToastMensagem('🗑️ Partida excluída com sucesso!');
   };
 
   const isDark = tema === 'dark';

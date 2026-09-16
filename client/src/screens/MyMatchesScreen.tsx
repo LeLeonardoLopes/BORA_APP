@@ -33,10 +33,11 @@ import {
   Clock, 
   Star, 
   Shield, 
-  Inbox,
-  CheckCircle2,
-  Ban,
-  AlertTriangle
+  Inbox, 
+  CheckCircle2, 
+  Ban, 
+  Trash2,
+  AlertTriangle 
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -118,15 +119,20 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
     }
   };
 
-  // Cancelar partida esportiva com confirmação
-  const handleConfirmarCancelamento = async () => {
+  // Excluir partida esportiva com confirmação
+  const handleConfirmarExclusao = async () => {
     if (!partidaParaCancelar) return;
     setCancelandoPartida(true);
 
     try {
-      await api.patch(`/matches/${partidaParaCancelar.id}/cancel`);
+      // Chama o endpoint de exclusão (DELETE /matches/:id) com fallback para cancel
+      try {
+        await api.delete(`/matches/${partidaParaCancelar.id}`);
+      } catch {
+        await api.patch(`/matches/${partidaParaCancelar.id}/cancel`);
+      }
       
-      // Remove ou atualiza a partida da lista
+      // Remove a partida da lista de minhas partidas
       setMinhasPartidas((prev) => prev.filter((p) => p.id !== partidaParaCancelar.id));
       
       // Cancela as solicitações pendentes dessa partida na interface
@@ -142,10 +148,10 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
         onPartidaCancelada(partidaParaCancelar.id);
       }
 
-      setToastMensagem(`🚫 Partida de ${partidaParaCancelar.esporte} cancelada com sucesso.`);
+      setToastMensagem(`🗑️ Partida de ${partidaParaCancelar.esporte} excluída com sucesso.`);
       setPartidaParaCancelar(null);
     } catch (err: any) {
-      setToastMensagem(err.response?.data?.error || 'Erro ao cancelar partida.');
+      setToastMensagem(err.response?.data?.error || 'Erro ao excluir partida.');
     } finally {
       setCancelandoPartida(false);
     }
@@ -392,12 +398,12 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
                       sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 800 }} 
                     />
 
-                    {/* BOTÃO DE CANCELAR PARTIDA */}
+                    {/* BOTÃO DE EXCLUIR PARTIDA */}
                     <Button
                       size="small"
                       variant="outlined"
                       color="error"
-                      startIcon={<Ban size={14} />}
+                      startIcon={<Trash2 size={14} />}
                       onClick={() => setPartidaParaCancelar(partida)}
                       sx={{
                         fontWeight: 800,
@@ -407,7 +413,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
                         py: 0.4
                       }}
                     >
-                      Cancelar Partida
+                      Excluir Partida
                     </Button>
                   </Box>
                 </CardContent>
@@ -417,7 +423,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
         </Box>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE CANCELAMENTO DE PARTIDA */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE PARTIDA */}
       <Dialog
         open={Boolean(partidaParaCancelar)}
         onClose={() => !cancelandoPartida && setPartidaParaCancelar(null)}
@@ -426,14 +432,16 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
         }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 900 }}>
-          <AlertTriangle size={22} color="#DC2626" /> Cancelar Partida?
+          <AlertTriangle size={22} color="#DC2626" /> Excluir Partida Criada?
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: 'text.primary', fontWeight: 500 }}>
-            Tem certeza que deseja cancelar a partida de <strong>{partidaParaCancelar?.esporte}</strong> no bairro <strong>{partidaParaCancelar?.bairro}</strong>?
+            Tem certeza que deseja excluir a partida de <strong>{partidaParaCancelar?.esporte}</strong> no bairro <strong>{partidaParaCancelar?.bairro}</strong>?
           </DialogContentText>
           <DialogContentText sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 1 }}>
-            ⚠️ Ao cancelar, todas as vagas e solicitações de atletas serão canceladas e a partida sairá do mapa e da busca de Franca/SP.
+            ⚠️ Ao excluir a partida:
+            <br />• Todas as vagas e solicitações de atletas serão canceladas.
+            <br />• A partida sairá do mapa e da busca de Franca/SP.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ pb: 2, px: 2.5 }}>
@@ -447,12 +455,12 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
           <Button 
             variant="contained" 
             color="error" 
-            onClick={handleConfirmarCancelamento}
+            onClick={handleConfirmarExclusao}
             disabled={cancelandoPartida}
-            startIcon={cancelandoPartida ? <CircularProgress size={16} color="inherit" /> : <Ban size={16} />}
+            startIcon={cancelandoPartida ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
             sx={{ fontWeight: 900, borderRadius: 2, px: 2.5 }}
           >
-            {cancelandoPartida ? 'Cancelando...' : 'Sim, Cancelar Partida'}
+            {cancelandoPartida ? 'Excluindo...' : 'Sim, Excluir Partida'}
           </Button>
         </DialogActions>
       </Dialog>
