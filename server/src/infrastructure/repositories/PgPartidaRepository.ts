@@ -293,7 +293,7 @@ export class PgPartidaRepository implements IPartidaRepository {
     try {
       let query = `
         SELECT * FROM partida 
-        WHERE (organizador_id = $1 OR organizador_id = '11111111-1111-1111-1111-111111111101')
+        WHERE organizador_id = $1
       `;
       if (!incluirCanceladasEFinalizadas) {
         query += ` AND deletado_em IS NULL AND status_partida IN ('Publicada', 'Lotada')`;
@@ -310,7 +310,7 @@ export class PgPartidaRepository implements IPartidaRepository {
 
     // Fallback em memória (retorna partidas do organizador)
     return Array.from(this.memoriaFallback.values())
-      .filter((p) => p.organizadorId === organizadorId || p.organizadorId === '11111111-1111-1111-1111-111111111101')
+      .filter((p) => p.organizadorId === organizadorId)
       .filter((p) => incluirCanceladasEFinalizadas || (p.statusPartida !== StatusPartidaEnum.CANCELADA && p.statusPartida !== StatusPartidaEnum.FINALIZADA));
   }
 

@@ -23,6 +23,9 @@ export class WebSocketGateway implements IWebSocketNotificationService {
 
     app.get('/ws', { websocket: true }, (connection: any, req) => {
       const socket: WebSocket = connection?.socket || connection;
+      if (!socket || typeof socket.send !== 'function') {
+        return;
+      }
       const query = (req.query || {}) as { usuarioId?: string; partidaId?: string };
       const usuarioId = query.usuarioId;
       const partidaId = query.partidaId;
@@ -56,14 +59,18 @@ export class WebSocketGateway implements IWebSocketNotificationService {
       });
 
       // Envia confirmação de handshake
-      socket.send(
-        JSON.stringify({
-          event: 'connected',
-          mensagem: 'Conexão WebSocket Bora! App estabelecida com sucesso.',
-          usuarioId,
-          partidaId,
-        })
-      );
+      try {
+        socket.send(
+          JSON.stringify({
+            event: 'connected',
+            mensagem: 'Conexão WebSocket Bora! App estabelecida com sucesso.',
+            usuarioId,
+            partidaId,
+          })
+        );
+      } catch (e) {
+        // silencia se conexao fechar
+      }
     });
   }
 

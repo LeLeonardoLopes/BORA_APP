@@ -14,7 +14,7 @@ export class SolicitacaoController {
     try {
       const body = req.body as any;
       const { id: partidaId } = req.params as { id: string };
-      const usuarioId = body?.usuarioId || (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
+      const usuarioId = body?.usuarioId || (req.user as any)?.id || (req.headers['x-user-id'] as string) || (req.query as any)?.usuarioId || '11111111-1111-1111-1111-111111111101';
 
       const solicitacao = await this.criarSolicitacaoUseCase.execute({
         partidaId,
@@ -42,7 +42,7 @@ export class SolicitacaoController {
     try {
       const body = req.body as any;
       const { id: solicitacaoId } = req.params as { id: string };
-      const organizadorId = body?.organizadorId || (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
+      const organizadorId = body?.organizadorId || (req.user as any)?.id || (req.headers['x-user-id'] as string) || (req.query as any)?.organizadorId || '11111111-1111-1111-1111-111111111101';
       const acao = body?.acao as 'aprovar' | 'rejeitar';
 
       if (!acao || (acao !== 'aprovar' && acao !== 'rejeitar')) {

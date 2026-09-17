@@ -70,6 +70,7 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   const usuarioRepo = new PgUsuarioRepository();
   const partidaRepo = new PgPartidaRepository();
   const solicitacaoRepo = new PgSolicitacaoRepository();
+  solicitacaoRepo.setRepositories(partidaRepo, usuarioRepo);
   const avaliacaoRepo = new PgAvaliacaoRepository();
   const mensagemRepo = new PgMensagemChatRepository();
   const auditoriaRepo = new PgAuditoriaRepository();
@@ -91,7 +92,7 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   const finalizarPartidaUseCase = new FinalizarPartidaUseCase(partidaRepo, solicitacaoRepo, wsGateway);
   const softDeletePartidaUseCase = new SoftDeletePartidaUseCase(partidaRepo, solicitacaoRepo, auditoriaRepo, wsGateway);
 
-  const criarSolicitacaoUseCase = new CriarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, usuarioRepo);
+  const criarSolicitacaoUseCase = new CriarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, usuarioRepo, wsGateway);
   const listarSolicitacoesUseCase = new ListarSolicitacoesUseCase(solicitacaoRepo);
   const gerenciarSolicitacaoUseCase = new GerenciarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, wsGateway);
 

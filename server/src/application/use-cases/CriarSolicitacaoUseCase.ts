@@ -1,6 +1,6 @@
 import { Solicitacao } from '../../domain/entities/Solicitacao';
 import { StatusSolicitacaoEnum } from '../../domain/enums/StatusEnums';
-import { IPartidaRepository, ISolicitacaoRepository, IUsuarioRepository } from '../repositories/IRepositories';
+import { IPartidaRepository, ISolicitacaoRepository, IUsuarioRepository, IWebSocketNotificationService } from '../repositories/IRepositories';
 import { randomUUID } from 'crypto';
 
 export interface CriarSolicitacaoInput {
@@ -13,7 +13,8 @@ export class CriarSolicitacaoUseCase {
   constructor(
     private solicitacaoRepo: ISolicitacaoRepository,
     private partidaRepo: IPartidaRepository,
-    private usuarioRepo?: IUsuarioRepository
+    private usuarioRepo?: IUsuarioRepository,
+    private wsNotificationService?: IWebSocketNotificationService
   ) {}
 
   public async execute(input: CriarSolicitacaoInput): Promise<Solicitacao> {
@@ -56,6 +57,18 @@ export class CriarSolicitacaoUseCase {
       dataRequisicao: new Date(),
     });
 
-    return await this.solicitacaoRepo.criar(novaSolicitacao);
+    const solicitacaoCriada = await this.solicitacaoRepo.criar(novaSolicitacao);
+
+    if (this.wsNotificationService && partida.organizadorId) {
+      this.wsNotificationService.notificarUsuario(partida.organizadorId, 'request_received', {
+        solicitacaoId: solicitacaoCriada.id,
+        partidaId: partida.id,
+        esporte: partida.esporte,
+        bairro: partida.bairro,
+        usuarioId: input.usuarioId,
+      });
+    }
+
+    return solicitacaoCriada;
   }
 }

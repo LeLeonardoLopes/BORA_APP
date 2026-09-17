@@ -78,7 +78,7 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
 
       if (resMatches.data && Array.isArray(resMatches.data.data)) {
         const criadasPorMim = resMatches.data.data.filter(
-          (p: any) => (usuarioLogado?.id && (p.organizadorId === usuarioLogado.id || p.organizador_id === usuarioLogado.id)) || p.isOrganizador || p.organizadorId === '11111111-1111-1111-1111-111111111101'
+          (p: any) => (usuarioLogado?.id && (p.organizadorId === usuarioLogado.id || p.organizador_id === usuarioLogado.id)) || p.isOrganizador
         );
         setMinhasPartidas(criadasPorMim);
       }
@@ -105,11 +105,15 @@ export const MyMatchesScreen: React.FC<MyMatchesScreenProps> = ({
     carregarDados();
   }, [usuarioLogado]);
 
-  // Responder à solicitação (Aprovar ou Rejeitar)
   const handleDecidirSolicitacao = async (solicitacaoId: string, acao: 'aprovar' | 'rejeitar', nomeAtleta: string) => {
     setProcessandoId(solicitacaoId);
     try {
-      await api.patch(`/requests/${solicitacaoId}`, { acao });
+      const userId = usuarioLogado?.id || '';
+      await api.patch(
+        `/requests/${solicitacaoId}`,
+        { acao, organizadorId: userId },
+        { headers: { 'x-user-id': userId } }
+      );
       
       setSolicitacoes((prev) =>
         prev.map((s) =>

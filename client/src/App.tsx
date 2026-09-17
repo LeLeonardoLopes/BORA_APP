@@ -464,8 +464,11 @@ export const App: React.FC = () => {
     }
 
     try {
-      await api.post(`/matches/${id}/requests`, { usuarioId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101' });
-      setToastMensagem('Solicitação enviada com sucesso! O organizador receberá a notificação para aprovação.');
+      const userId = usuarioLogado?.id || '';
+      await api.post(`/matches/${id}/requests`, { usuarioId: userId }, { headers: { 'x-user-id': userId } });
+      setToastMensagem('Solicitação enviada com sucesso! Aguarde a aprovação do criador da partida.');
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
     } catch (e: any) {
       const msgErro = e.response?.data?.error || 'Erro ao solicitar vaga.';
       setToastMensagem(msgErro);
@@ -979,17 +982,31 @@ export const App: React.FC = () => {
                       </Button>
                     </Card>
                   ) : (
-                    partidasFiltradas.map((match) => (
-                      <MatchCard
-                        key={match.id}
-                        {...match}
-                        usuarioLogado={usuarioLogado}
-                        onSolicitarVaga={handleSolicitarVaga}
-                        onMarcarAmistoso={handleMarcarAmistoso}
-                        onFinalizarPartida={handleFinalizarPartida}
-                        onCancelarPartida={handleCancelarPartida}
-                      />
-                    ))
+                    partidasFiltradas.map((match) => {
+                      const minhaSolicitacao = Array.isArray(solicitacoesData)
+                        ? solicitacoesData.find(
+                            (s: any) =>
+                              (s.partidaId === match.id || s.partida_id === match.id) &&
+                              (s.usuarioId === usuarioLogado?.id || s.usuario_id === usuarioLogado?.id)
+                          )
+                        : null;
+                      const minhaSolicitacaoStatus = minhaSolicitacao?.statusSolicitacao || minhaSolicitacao?.status_solicitacao || null;
+                      const isConfirmado = minhaSolicitacaoStatus === 'Aprovada' || match.isConfirmado;
+
+                      return (
+                        <MatchCard
+                          key={match.id}
+                          {...match}
+                          isConfirmado={isConfirmado}
+                          minhaSolicitacaoStatus={minhaSolicitacaoStatus}
+                          usuarioLogado={usuarioLogado}
+                          onSolicitarVaga={handleSolicitarVaga}
+                          onMarcarAmistoso={handleMarcarAmistoso}
+                          onFinalizarPartida={handleFinalizarPartida}
+                          onCancelarPartida={handleCancelarPartida}
+                        />
+                      );
+                    })
                   )}
                 </>
               )}

@@ -1,10 +1,17 @@
 import { db } from '../database/connection';
 import { Solicitacao } from '../../domain/entities/Solicitacao';
-import { ISolicitacaoRepository, ISolicitacaoDetalhada } from '../../application/repositories/IRepositories';
+import { ISolicitacaoRepository, ISolicitacaoDetalhada, IPartidaRepository, IUsuarioRepository } from '../../application/repositories/IRepositories';
 import { StatusSolicitacaoEnum } from '../../domain/enums/StatusEnums';
 
 export class PgSolicitacaoRepository implements ISolicitacaoRepository {
   private memoriaFallback = new Map<string, Solicitacao>();
+  private partidaRepo?: IPartidaRepository;
+  private usuarioRepo?: IUsuarioRepository;
+
+  public setRepositories(partidaRepo: IPartidaRepository, usuarioRepo: IUsuarioRepository) {
+    this.partidaRepo = partidaRepo;
+    this.usuarioRepo = usuarioRepo;
+  }
 
   public async criar(solicitacao: Solicitacao): Promise<Solicitacao> {
     try {
@@ -89,16 +96,43 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
           p.status_partida as "partidaStatus",
           (p.deletado_em IS NOT NULL) as "partidaExcluida"
         FROM solicitacao s
-        JOIN usuario u ON s.usuario_id = u.id
-        JOIN partida p ON s.partida_id = p.id
-        WHERE u.deletado_em IS NULL
+        LEFT JOIN usuario u ON s.usuario_id = u.id
+        LEFT JOIN partida p ON s.partida_id = p.id
         ORDER BY s.data_requisicao DESC;
       `);
       if (res.rows.length > 0) return res.rows;
     } catch (err: any) {
       console.warn('Falha na listagem detalhada de solicitações PostgreSQL:', err.message);
     }
-    return [];
+
+    // Fallback completo em memória
+    const lista: ISolicitacaoDetalhada[] = [];
+    for (const s of Array.from(this.memoriaFallback.values())) {
+      const partida = this.partidaRepo ? await this.partidaRepo.buscarPorId(s.partidaId) : null;
+      const usuario = this.usuarioRepo ? await this.usuarioRepo.buscarPorId(s.usuarioId) : null;
+
+      lista.push({
+        id: s.id,
+        partidaId: s.partidaId,
+        usuarioId: s.usuarioId,
+        statusSolicitacao: s.statusSolicitacao,
+        dataRequisicao: s.dataRequisicao,
+        dataDecisao: s.dataDecisao,
+        atletaNome: usuario?.nome || 'Atleta Bora!',
+        atletaFoto: usuario?.fotoUrl || null,
+        atletaNota: usuario?.notaMedia || 5.0,
+        atletaGenero: usuario?.genero || 'Masculino',
+        partidaEsporte: partida?.esporte || 'Futebol Society',
+        partidaDescricao: partida?.descricao || '',
+        partidaDataHora: partida?.dataHora || new Date(),
+        partidaBairro: partida?.bairro || 'São José',
+        organizadorId: partida?.organizadorId || '',
+        partidaStatus: partida?.statusPartida || 'Publicada',
+        partidaExcluida: Boolean(partida?.deletadoEm),
+      });
+    }
+
+    return lista.sort((a, b) => new Date(b.dataRequisicao).getTime() - new Date(a.dataRequisicao).getTime());
   }
 
   public async atualizar(solicitacao: Solicitacao): Promise<void> {
