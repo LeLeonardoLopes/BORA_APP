@@ -4,6 +4,7 @@ import { ConsultarMapaPartidasUseCase } from '../../application/use-cases/Consul
 import { CancelarPartidaUseCase } from '../../application/use-cases/CancelarPartidaUseCase';
 import { FinalizarPartidaUseCase } from '../../application/use-cases/FinalizarPartidaUseCase';
 import { SoftDeletePartidaUseCase } from '../../application/use-cases/SoftDeletePartidaUseCase';
+import { IPartidaRepository } from '../../application/repositories/IRepositories';
 
 export class PartidaController {
   constructor(
@@ -11,13 +12,36 @@ export class PartidaController {
     private consultarMapaPartidasUseCase: ConsultarMapaPartidasUseCase,
     private cancelarPartidaUseCase: CancelarPartidaUseCase,
     private finalizarPartidaUseCase: FinalizarPartidaUseCase,
-    private softDeletePartidaUseCase: SoftDeletePartidaUseCase
+    private softDeletePartidaUseCase: SoftDeletePartidaUseCase,
+    private partidaRepo?: IPartidaRepository
   ) {}
+
+  private extrairSolicitanteId(req: FastifyRequest): string {
+    const bodyId = (req.body as any)?.solicitanteId || (req.body as any)?.organizadorId;
+    const queryId = (req.query as any)?.solicitanteId || (req.query as any)?.organizadorId || (req.query as any)?.usuarioId;
+    const headerUserId = (req.headers as any)?.['x-user-id'];
+
+    if (bodyId && typeof bodyId === 'string' && bodyId.trim()) return bodyId.trim();
+    if (queryId && typeof queryId === 'string' && queryId.trim()) return queryId.trim();
+    if (headerUserId && typeof headerUserId === 'string' && headerUserId.trim()) return headerUserId.trim();
+
+    if (req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.replace(/^Bearer\s+/i, '');
+        const decoded = (req.server as any).jwt?.decode(token) as any;
+        if (decoded?.id) return decoded.id;
+      } catch {
+        // ignora erro de decodificacao
+      }
+    }
+
+    return (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
+  }
 
   public create = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       const body = req.body as any;
-      const organizadorId = body.organizadorId || (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
+      const organizadorId = this.extrairSolicitanteId(req);
 
       const partida = await this.criarPartidaUseCase.execute({
         organizadorId,
@@ -54,6 +78,7 @@ export class PartidaController {
       const radius = Number(query.radius) || 5;
       const endereco = query.endereco || query.bairro || query.q;
       const generoUsuario = query.genero || (req.user as any)?.genero;
+      const usuarioAutenticadoId = this.extrairSolicitanteId(req);
 
       const partidas = await this.consultarMapaPartidasUseCase.execute({
         lat,
@@ -61,7 +86,7 @@ export class PartidaController {
         raioKm: radius,
         esporte: query.sport,
         endereco: typeof endereco === 'string' ? endereco : undefined,
-        usuarioAutenticadoId: (req.user as any)?.id || 'anonymous',
+        usuarioAutenticadoId,
         generoUsuario,
       });
 
@@ -72,10 +97,24 @@ export class PartidaController {
     }
   };
 
+  public listMyMatches = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const organizadorId = this.extrairSolicitanteId(req);
+      if (this.partidaRepo && typeof this.partidaRepo.listarPorOrganizador === 'function') {
+        const partidas = await this.partidaRepo.listarPorOrganizador(organizadorId, true);
+        return reply.status(200).send({ data: partidas });
+      }
+      return reply.status(200).send({ data: [] });
+    } catch (err: any) {
+      req.log.error(err);
+      return reply.status(500).send({ error: 'Erro ao consultar partidas do organizador: ' + err.message });
+    }
+  };
+
   public cancel = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const solicitanteId = (req.body as any)?.solicitanteId || (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
+      const solicitanteId = this.extrairSolicitanteId(req);
 
       await this.cancelarPartidaUseCase.execute({
         partidaId: id,
@@ -92,7 +131,7 @@ export class PartidaController {
   public finish = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const solicitanteId = (req.body as any)?.solicitanteId || (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
+      const solicitanteId = this.extrairSolicitanteId(req);
 
       await this.finalizarPartidaUseCase.execute({
         partidaId: id,
@@ -109,8 +148,8 @@ export class PartidaController {
   public delete = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const solicitanteId = (req.body as any)?.solicitanteId || (req.user as any)?.id || '11111111-1111-1111-1111-111111111101';
-      const motivo = (req.body as any)?.motivo;
+      const solicitanteId = this.extrairSolicitanteId(req);
+      const motivo = (req.body as any)?.motivo || (req.query as any)?.motivo;
 
       await this.softDeletePartidaUseCase.execute({
         partidaId: id,

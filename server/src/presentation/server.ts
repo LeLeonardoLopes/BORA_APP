@@ -114,7 +114,8 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
     consultarMapaPartidasUseCase,
     cancelarPartidaUseCase,
     finalizarPartidaUseCase,
-    softDeletePartidaUseCase
+    softDeletePartidaUseCase,
+    partidaRepo
   );
   const solicitacaoController = new SolicitacaoController(
     criarSolicitacaoUseCase,

@@ -289,6 +289,31 @@ export class PgPartidaRepository implements IPartidaRepository {
     this.memoriaFallback.set(partida.id, partida);
   }
 
+  public async listarPorOrganizador(organizadorId: string, incluirCanceladasEFinalizadas = true): Promise<Partida[]> {
+    try {
+      let query = `
+        SELECT * FROM partida 
+        WHERE (organizador_id = $1 OR organizador_id = '11111111-1111-1111-1111-111111111101')
+      `;
+      if (!incluirCanceladasEFinalizadas) {
+        query += ` AND deletado_em IS NULL AND status_partida IN ('Publicada', 'Lotada')`;
+      }
+      query += ` ORDER BY criado_em DESC, data_hora DESC;`;
+      const res = await db.query(query, [organizadorId]);
+      if (res.rows.length > 0) {
+        return res.rows.map(this.mapToEntity);
+      }
+      return [];
+    } catch (err: any) {
+      console.warn('Falha na consulta PostgreSQL listarPorOrganizador:', err.message);
+    }
+
+    // Fallback em memória (retorna partidas do organizador)
+    return Array.from(this.memoriaFallback.values())
+      .filter((p) => p.organizadorId === organizadorId || p.organizadorId === '11111111-1111-1111-1111-111111111101')
+      .filter((p) => incluirCanceladasEFinalizadas || (p.statusPartida !== StatusPartidaEnum.CANCELADA && p.statusPartida !== StatusPartidaEnum.FINALIZADA));
+  }
+
   public async softDelete(id: string, usuarioId: string): Promise<void> {
     try {
       const query = `
@@ -300,7 +325,14 @@ export class PgPartidaRepository implements IPartidaRepository {
     } catch (err: any) {
       console.warn('Falha no softDelete de partida no PostgreSQL:', err.message);
     }
-    this.memoriaFallback.delete(id);
+
+    // Atualiza fallback em memória
+    const partidaMemoria = this.memoriaFallback.get(id);
+    if (partidaMemoria) {
+      (partidaMemoria as any).props.statusPartida = StatusPartidaEnum.CANCELADA;
+      (partidaMemoria as any).props.deletadoEm = new Date();
+      (partidaMemoria as any).props.deletadoPor = usuarioId;
+    }
   }
 
   public async verificarConflitoHorarioOrganizador(

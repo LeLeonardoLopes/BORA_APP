@@ -10,6 +10,7 @@ export function createMatchRoutes(
   return async (app: FastifyInstance) => {
     app.post('/api/v1/matches', partidaController.create);
     app.get('/api/v1/matches', partidaController.listMap);
+    app.get('/api/v1/matches/my', partidaController.listMyMatches);
     app.patch('/api/v1/matches/:id/cancel', partidaController.cancel);
     app.patch('/api/v1/matches/:id/finish', partidaController.finish);
     app.delete('/api/v1/matches/:id', partidaController.delete);

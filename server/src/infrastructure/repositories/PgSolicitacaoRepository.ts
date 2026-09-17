@@ -85,11 +85,13 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
           p.descricao as "partidaDescricao",
           p.data_hora as "partidaDataHora",
           p.bairro as "partidaBairro",
-          p.organizador_id as "organizadorId"
+          p.organizador_id as "organizadorId",
+          p.status_partida as "partidaStatus",
+          (p.deletado_em IS NOT NULL) as "partidaExcluida"
         FROM solicitacao s
         JOIN usuario u ON s.usuario_id = u.id
         JOIN partida p ON s.partida_id = p.id
-        WHERE p.deletado_em IS NULL AND u.deletado_em IS NULL
+        WHERE u.deletado_em IS NULL
         ORDER BY s.data_requisicao DESC;
       `);
       if (res.rows.length > 0) return res.rows;

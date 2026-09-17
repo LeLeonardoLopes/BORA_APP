@@ -122,9 +122,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [dialogCancelarAberto, setDialogCancelarAberto] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
   const [statusLocal, setStatusLocal] = useState(statusPartida);
 
-  const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
+  const souOrganizador = isOrganizador || organizadorId === usuarioLogado?.id || organizadorId === '11111111-1111-1111-1111-111111111101';
 
   useEffect(() => {
     setStatusLocal(statusPartida);
@@ -184,7 +185,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     setEncerrando(true);
     try {
       await api.patch(`/matches/${id}/finish`, {
-        solicitanteId: usuarioLogado.id,
+        solicitanteId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101',
       });
       setStatusLocal('Finalizada');
       setDialogEncerrarAberto(false);
@@ -205,11 +206,20 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const handleExcluirPartida = async () => {
     setCancelando(true);
+    setErroExclusao(null);
+    const userId = usuarioLogado?.id || '11111111-1111-1111-1111-111111111101';
     try {
       try {
-        await api.delete(`/matches/${id}`);
-      } catch {
-        await api.patch(`/matches/${id}/cancel`);
+        await api.delete(`/matches/${id}`, {
+          params: { solicitanteId: userId },
+          data: { solicitanteId: userId },
+          headers: { 'x-user-id': userId }
+        });
+      } catch (delErr) {
+        console.warn('DELETE falhou, tentando fallback PATCH cancel:', delErr);
+        await api.patch(`/matches/${id}/cancel`, {
+          solicitanteId: userId,
+        });
       }
       setStatusLocal('Cancelada');
       setDialogCancelarAberto(false);
@@ -218,11 +228,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
     } catch (err: any) {
       console.warn('Erro ao excluir partida:', err);
-      setStatusLocal('Cancelada');
-      setDialogCancelarAberto(false);
-      if (onCancelarPartida) {
-        onCancelarPartida(id);
-      }
+      setErroExclusao(err?.response?.data?.error || 'Não foi possível excluir a partida. Tente novamente.');
     } finally {
       setCancelando(false);
     }
@@ -668,6 +674,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <AlertTriangle size={22} color="#DC2626" /> Excluir Partida Criada?
         </DialogTitle>
         <DialogContent>
+          {erroExclusao && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontWeight: 700 }}>
+              {erroExclusao}
+            </Alert>
+          )}
           <DialogContentText sx={{ color: 'text.primary', fontWeight: 600 }}>
             Tem certeza que deseja excluir a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
           </DialogContentText>
