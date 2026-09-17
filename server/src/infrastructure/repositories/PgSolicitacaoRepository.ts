@@ -1,12 +1,20 @@
 import { db } from '../database/connection';
 import { Solicitacao } from '../../domain/entities/Solicitacao';
 import { ISolicitacaoRepository, ISolicitacaoDetalhada, IPartidaRepository, IUsuarioRepository } from '../../application/repositories/IRepositories';
-import { StatusSolicitacaoEnum } from '../../domain/enums/StatusEnums';
+import { StatusSolicitacaoEnum, StatusPartidaEnum } from '../../domain/enums/StatusEnums';
 
 export class PgSolicitacaoRepository implements ISolicitacaoRepository {
   private memoriaFallback = new Map<string, Solicitacao>();
-  private partidaRepo?: IPartidaRepository;
   private usuarioRepo?: IUsuarioRepository;
+  private partidaRepo?: IPartidaRepository;
+
+  constructor(
+    usuarioRepo?: IUsuarioRepository,
+    partidaRepo?: IPartidaRepository
+  ) {
+    this.usuarioRepo = usuarioRepo;
+    this.partidaRepo = partidaRepo;
+  }
 
   public setRepositories(partidaRepo: IPartidaRepository, usuarioRepo: IUsuarioRepository) {
     this.partidaRepo = partidaRepo;
@@ -128,7 +136,7 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
         partidaBairro: partida?.bairro || 'São José',
         organizadorId: partida?.organizadorId || '',
         partidaStatus: partida?.statusPartida || 'Publicada',
-        partidaExcluida: Boolean(partida?.deletadoEm),
+        partidaExcluida: Boolean(partida?.statusPartida === StatusPartidaEnum.CANCELADA || (partida as any)?.deletadoEm),
       });
     }
 
