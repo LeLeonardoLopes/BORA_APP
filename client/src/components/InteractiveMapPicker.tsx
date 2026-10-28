@@ -3,6 +3,7 @@ import { Box, Typography, Chip } from '@mui/material';
 import { MapPin, Hand } from 'lucide-react';
 import L from 'leaflet';
 import { GoogleMap, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_LIBRARIES, GOOGLE_MAPS_LOADER_ID } from '../services/googleMapsConfig';
 
 export interface InteractiveMapPickerProps {
   lat: number;
@@ -62,13 +63,14 @@ export const InteractiveMapPicker: React.FC<InteractiveMapPickerProps> = ({
   buscando = false,
   onChangeCoordinates,
 }) => {
-  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const googleMapsApiKey = GOOGLE_MAPS_API_KEY;
   const usarGoogleMaps = Boolean(googleMapsApiKey);
 
   // Hook oficial da Google Maps API
   const { isLoaded: googleMapsLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script-picker',
+    id: GOOGLE_MAPS_LOADER_ID,
     googleMapsApiKey: googleMapsApiKey,
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   // Refs para Fallback Leaflet

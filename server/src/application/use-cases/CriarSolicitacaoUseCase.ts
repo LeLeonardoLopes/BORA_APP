@@ -59,13 +59,20 @@ export class CriarSolicitacaoUseCase {
 
     const solicitacaoCriada = await this.solicitacaoRepo.criar(novaSolicitacao);
 
-    if (this.wsNotificationService && partida.organizadorId) {
+    // Notifica o organizador em tempo real para que a solicitação apareça
+    // imediatamente no painel de gestão para aprovação/recusa.
+    if (this.wsNotificationService) {
+      let atletaNome: string | undefined;
+      if (this.usuarioRepo) {
+        const solicitante = await this.usuarioRepo.buscarPorId(input.usuarioId);
+        atletaNome = solicitante?.nome;
+      }
+
       this.wsNotificationService.notificarUsuario(partida.organizadorId, 'request_received', {
         solicitacaoId: solicitacaoCriada.id,
         partidaId: partida.id,
-        esporte: partida.esporte,
-        bairro: partida.bairro,
         usuarioId: input.usuarioId,
+        atletaNome,
       });
     }
 

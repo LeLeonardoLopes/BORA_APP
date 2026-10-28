@@ -104,12 +104,14 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [duracaoMinutos, setDuracaoMinutos] = useState<number>(SUGESTOES_DURACAO_POR_ESPORTE[MODALIDADES_COLETIVAS[0]] || 90);
   const [descricao, setDescricao] = useState('');
   const [dataHora, setDataHora] = useState('');
-  const [maxVagas, setMaxVagas] = useState(14);
+  const [maxVagas, setMaxVagas] = useState(6);
+  const [temReservas, setTemReservas] = useState(false);
+  const [qtdReservas, setQtdReservas] = useState(2);
   const [exclusivoFeminino, setExclusivoFeminino] = useState(false);
   
   // 1º SEQUÊNCIA PRINCIPAL: Bairro, Endereço e Alfinete no Mapa
-  const [bairro, setBairro] = useState('São José');
-  const [enderecoCompleto, setEnderecoCompleto] = useState('Av. Dr. Ismael Alonso y Alonso, 2000');
+  const [bairro, setBairro] = useState('');
+  const [enderecoCompleto, setEnderecoCompleto] = useState('');
   const [coordenadas, setCoordenadas] = useState<Coordenadas>({
     lat: -20.534215,
     lng: -47.401258,
@@ -358,7 +360,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       lat: coordenadas.lat,
       lng: coordenadas.lng,
       vagasPreenchidas: 1,
-      maxVagas: formatoJogo === 'Amistoso_Times' ? 2 : Number(maxVagas),
+      maxVagas: formatoJogo === 'Amistoso_Times' ? 2 : Number(maxVagas) + (formatoJogo === 'Avulso' && temReservas ? Number(qtdReservas) || 0 : 0),
       formatoJogo,
       tipoLocal,
       timeMandante: formatoJogo === 'Amistoso_Times' ? (meuTime?.nome || 'Bora Franca F.C.') : null,
@@ -386,8 +388,10 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
         return '📱 GPS do Dispositivo';
       case 'satelite_nominatim':
         return '🛰️ Satélite OpenStreetMap';
+      case 'base_franca':
+        return '📍 Ponto aproximado (local não encontrado online)';
       default:
-        return '📍 Ponto Base Franca/SP';
+        return '📍 Centro de Franca/SP (ajuste o alfinete)';
     }
   };
 
@@ -400,14 +404,14 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       <Box component="form" onSubmit={handleSubmit}>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.2, pt: 1 }}>
 
-          {/* REGRA RN06: ESPAÇO SEGURO FEMININO (EXCLUSIVO PARA ORGANIZADORAS MULHERES) */}
+          {/* ESPAÇO SEGURO FEMININO: exibido apenas para organizadoras mulheres */}
           {isMulher && (
             <Box
               sx={{
                 p: 2,
                 borderRadius: 2.5,
-                bgcolor: exclusivoFeminino ? 'rgba(236, 72, 153, 0.10)' : 'action.hover',
-                border: `1.5px solid ${exclusivoFeminino ? '#EC4899' : 'divider'}`,
+                bgcolor: 'rgba(236, 72, 153, 0.10)',
+                border: '1.5px solid #EC4899',
                 transition: 'all 0.25s ease-in-out',
                 display: 'flex',
                 alignItems: 'center',
@@ -416,8 +420,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             >
               <Box sx={{ pr: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: exclusivoFeminino ? '#EC4899' : 'text.primary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    🛡️ Espaço Seguro Feminino (RN06)
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#EC4899', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    🛡️ Espaço Seguro Feminino
                   </Typography>
                   {exclusivoFeminino && (
                     <Chip 
@@ -436,11 +440,19 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                 onChange={(e) => setExclusivoFeminino(e.target.checked)}
                 color="secondary"
                 sx={{
+                  '& .MuiSwitch-switchBase': {
+                    color: '#EC4899',
+                  },
                   '& .MuiSwitch-switchBase.Mui-checked': {
                     color: '#EC4899',
                   },
+                  '& .MuiSwitch-track': {
+                    backgroundColor: '#EC4899',
+                    opacity: 0.45,
+                  },
                   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
                     backgroundColor: '#EC4899',
+                    opacity: 1,
                   },
                 }}
               />
@@ -758,6 +770,26 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
             />
           )}
 
+          {formatoJogo === 'Avulso' && (
+            <Box>
+              <FormControlLabel
+                control={<Switch checked={temReservas} onChange={(e) => setTemReservas(e.target.checked)} />}
+                label="Ter jogadores reservas"
+              />
+              {temReservas && (
+                <TextField
+                  label="Quantidade de reservas"
+                  type="number"
+                  fullWidth
+                  inputProps={{ min: 1, max: 20 }}
+                  value={qtdReservas}
+                  onChange={(e) => setQtdReservas(Number(e.target.value))}
+                  helperText="Os reservas entram na lista de vagas da partida, depois dos titulares."
+                />
+              )}
+            </Box>
+          )}
+
           <Divider sx={{ my: 0.5 }} />
 
           {/* ========================================================================= */}
@@ -768,16 +800,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
               📍 Localização da Partida
             </Typography>
 
-            {/* 1. Campos de Bairro e Endereço */}
+            {/* 1. Campo de Endereço (o bairro é obtido automaticamente quando possível) */}
             <Box display="flex" flexDirection="column" gap={1.5} mb={2}>
-              <TextField
-                label="Bairro (Franca/SP)"
-                fullWidth
-                required
-                value={bairro}
-                onChange={(e) => handleAtualizarEnderecoOuBairro(enderecoCompleto, e.target.value)}
-              />
-
               <TextField
                 label="Endereço Completo (Rua, Número)"
                 fullWidth

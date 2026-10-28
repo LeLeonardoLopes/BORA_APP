@@ -13,7 +13,11 @@ import {
   CircularProgress,
   Divider,
   MenuItem,
-  Grid
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { 
   Camera, 
@@ -125,6 +129,49 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [toastAberto, setToastAberto] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [toastSeverity, setToastSeverity] = useState<'success' | 'error' | 'info'>('success');
+  // Alterar senha (conta com e-mail e senha)
+  const [senhaDialogAberto, setSenhaDialogAberto] = useState(false);
+  const [senhaAtualInput, setSenhaAtualInput] = useState('');
+  const [novaSenhaInput, setNovaSenhaInput] = useState('');
+  const [confirmaSenhaInput, setConfirmaSenhaInput] = useState('');
+  const [senhaErro, setSenhaErro] = useState('');
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
+
+  const handleAlterarSenha = async () => {
+    setSenhaErro('');
+    if (!senhaAtualInput || !novaSenhaInput) {
+      setSenhaErro('Preencha a senha atual e a nova senha.');
+      return;
+    }
+    const senhaForte = novaSenhaInput.length >= 6 && /\d/.test(novaSenhaInput) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(novaSenhaInput);
+    if (!senhaForte) {
+      setSenhaErro('A nova senha deve ter no mínimo 6 caracteres, pelo menos 1 número e 1 caractere especial.');
+      return;
+    }
+    if (novaSenhaInput !== confirmaSenhaInput) {
+      setSenhaErro('A confirmação não é igual à nova senha.');
+      return;
+    }
+    setTrocandoSenha(true);
+    try {
+      await api.put('/users/password', {
+        usuarioId: usuario?.id,
+        senhaAtual: senhaAtualInput,
+        novaSenha: novaSenhaInput,
+      });
+      setSenhaDialogAberto(false);
+      setSenhaAtualInput('');
+      setNovaSenhaInput('');
+      setConfirmaSenhaInput('');
+      setToastMsg('Senha alterada com sucesso!');
+      setToastSeverity('success');
+      setToastAberto(true);
+    } catch (err: any) {
+      setSenhaErro(err.response?.data?.error || 'Não foi possível alterar a senha.');
+    } finally {
+      setTrocandoSenha(false);
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileTeamInputRef = useRef<HTMLInputElement>(null);
@@ -809,6 +856,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       >
         {salvando ? 'SALVANDO PERFIL...' : 'SALVAR PERFIL ESPORTIVO'}
       </Button>
+
+      <Button
+        fullWidth
+        variant="outlined"
+        size="large"
+        onClick={() => setSenhaDialogAberto(true)}
+        startIcon={<Shield size={20} />}
+        sx={{ mt: 1.5, py: 1.5, borderRadius: 3, fontWeight: 800 }}
+      >
+        ALTERAR SENHA
+      </Button>
+
+      <Dialog open={senhaDialogAberto} onClose={() => !trocandoSenha && setSenhaDialogAberto(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 900 }}>Alterar senha</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {senhaErro && <Alert severity="error">{senhaErro}</Alert>}
+          <TextField label="Senha atual" type="password" fullWidth value={senhaAtualInput} onChange={(e) => setSenhaAtualInput(e.target.value)} />
+          <TextField label="Nova senha" type="password" fullWidth value={novaSenhaInput} onChange={(e) => setNovaSenhaInput(e.target.value)}
+            helperText="Mínimo 6 caracteres, 1 número e 1 caractere especial" />
+          <TextField label="Confirmar nova senha" type="password" fullWidth value={confirmaSenhaInput} onChange={(e) => setConfirmaSenhaInput(e.target.value)} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setSenhaDialogAberto(false)} disabled={trocandoSenha}>Cancelar</Button>
+          <Button variant="contained" onClick={handleAlterarSenha} disabled={trocandoSenha}>
+            {trocandoSenha ? 'Salvando...' : 'Salvar nova senha'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={toastAberto}

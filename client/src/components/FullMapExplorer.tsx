@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Box, Card, Typography, Button, Chip } from '@mui/material';
 import { GoogleMap, MarkerF, CircleF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
+import { GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_LIBRARIES, GOOGLE_MAPS_LOADER_ID } from '../services/googleMapsConfig';
 
 export interface FullMapExplorerProps {
   partidas: any[];
@@ -58,12 +59,13 @@ export const FullMapExplorer: React.FC<FullMapExplorerProps> = ({
   onSolicitarVaga,
   onMarcarAmistoso,
 }) => {
-  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const googleMapsApiKey = GOOGLE_MAPS_API_KEY;
   const usarGoogleMaps = Boolean(googleMapsApiKey);
 
   const { isLoaded: googleMapsLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script-explorer',
+    id: GOOGLE_MAPS_LOADER_ID,
     googleMapsApiKey: googleMapsApiKey,
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   const [partidaSelecionadaGoogle, setPartidaSelecionadaGoogle] = useState<any | null>(null);

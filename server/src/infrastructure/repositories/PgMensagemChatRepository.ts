@@ -8,7 +8,7 @@ export class PgMensagemChatRepository implements IMensagemChatRepository {
   public async criar(mensagem: MensagemChat): Promise<MensagemChat> {
     try {
       const query = `
-        INSERT INTO mensagem_chat (id, partida_id, usuario_id, texto, criado_em)
+        INSERT INTO chat_mensagem (id, partida_id, usuario_id, mensagem, criado_em)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *;
       `;
@@ -20,7 +20,7 @@ export class PgMensagemChatRepository implements IMensagemChatRepository {
         mensagem.criadoEm,
       ]);
     } catch (err: any) {
-      console.warn('PostgreSQL inacessível para chat. Armazenando mensagem em memória:', err.message);
+      console.error('[ERRO BANCO] Falha ao gravar mensagem de chat no PostgreSQL. Registro mantido apenas em memória:', err.message);
     }
 
     const lista = this.memoriaFallback.get(mensagem.partidaId) || [];
@@ -36,13 +36,13 @@ export class PgMensagemChatRepository implements IMensagemChatRepository {
           m.id,
           m.partida_id as "partidaId",
           m.usuario_id as "usuarioId",
-          m.texto,
+          m.mensagem as texto,
           m.criado_em as "criadoEm",
           u.nome as "usuarioNome",
           u.foto_url as "usuarioFoto"
-        FROM mensagem_chat m
+        FROM chat_mensagem m
         LEFT JOIN usuario u ON m.usuario_id = u.id
-        WHERE m.partida_id = $1
+        WHERE m.partida_id = $1 AND m.deletado_em IS NULL
         ORDER BY m.criado_em ASC;
       `;
       const res = await db.query(query, [partidaId]);
@@ -61,7 +61,7 @@ export class PgMensagemChatRepository implements IMensagemChatRepository {
         );
       }
     } catch (err: any) {
-      console.warn('Falha ao listar mensagens de chat no PostgreSQL:', err.message);
+      console.error('[ERRO BANCO] Falha ao listar mensagens de chat no PostgreSQL:', err.message);
     }
 
     return this.memoriaFallback.get(partidaId) || [];

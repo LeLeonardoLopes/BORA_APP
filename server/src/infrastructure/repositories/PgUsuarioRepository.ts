@@ -16,7 +16,7 @@ export class PgUsuarioRepository implements IUsuarioRepository {
         id: '11111111-1111-1111-1111-111111111101',
         nome: 'Leonardo Lopes (Capitão Bora Franca)',
         email: 'leonardo.lopes@boraapp.com.br',
-        senhaHash: '$2a$10$WpZ6GfZt.7qO8KzV4X0Nze8tQzI3L2mN1bV4C5X6Z7A8S9D0F1G2H',
+        senhaHash: '$2a$10$cLkiJFfEdD7MfNJTu1PnUuOBcxTvCPXb/524T8saVimpSXQYNIdGS',
         fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
         genero: 'Masculino',
         dataNascimento: new Date('1998-05-15'),
@@ -30,7 +30,7 @@ export class PgUsuarioRepository implements IUsuarioRepository {
         id: '11111111-1111-1111-1111-111111111102',
         nome: 'Renata Saraiva (Sunset Beach Team)',
         email: 'renata.saraiva@boraapp.com.br',
-        senhaHash: '$2a$10$WpZ6GfZt.7qO8KzV4X0Nze8tQzI3L2mN1bV4C5X6Z7A8S9D0F1G2H',
+        senhaHash: '$2a$10$cLkiJFfEdD7MfNJTu1PnUuOBcxTvCPXb/524T8saVimpSXQYNIdGS',
         fotoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
         genero: 'Feminino',
         dataNascimento: new Date('2000-08-20'),
@@ -44,7 +44,7 @@ export class PgUsuarioRepository implements IUsuarioRepository {
         id: '11111111-1111-1111-1111-111111111103',
         nome: 'Prof. Carlos Eduardo (FATEC Franca)',
         email: 'carlos.eduardo@fatecfranca.edu.br',
-        senhaHash: '$2a$10$WpZ6GfZt.7qO8KzV4X0Nze8tQzI3L2mN1bV4C5X6Z7A8S9D0F1G2H',
+        senhaHash: '$2a$10$cLkiJFfEdD7MfNJTu1PnUuOBcxTvCPXb/524T8saVimpSXQYNIdGS',
         fotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         genero: 'Masculino',
         dataNascimento: new Date('1985-03-10'),
@@ -157,11 +157,18 @@ export class PgUsuarioRepository implements IUsuarioRepository {
     this.memoriaFallback.set(usuario.email.toLowerCase(), usuario);
   }
 
+  public async atualizarSenha(id: string, senhaHash: string): Promise<void> {
+    await db.query(
+      `UPDATE usuario SET senha_hash = $1, atualizado_em = NOW() WHERE id = $2 AND deletado_em IS NULL;`,
+      [senhaHash, id]
+    );
+  }
+
   public async softDelete(id: string, usuarioId: string): Promise<void> {
     try {
       const query = `
         UPDATE usuario 
-        SET deletado_em = NOW(), deletado_por = $2, status_usuario = 'Banido', atualizado_em = NOW() 
+        SET deletado_em = NOW(), deletado_por_id = $2, status_usuario = 'Banido', atualizado_em = NOW() 
         WHERE id = $1;
       `;
       await db.query(query, [id, usuarioId]);

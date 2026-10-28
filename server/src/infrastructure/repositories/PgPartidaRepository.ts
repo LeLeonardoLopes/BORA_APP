@@ -87,8 +87,8 @@ export class PgPartidaRepository implements IPartidaRepository {
         ) VALUES (
           $1, $2, $3, $4, $5, $6, 
           $7, $8, $9, $10, $11, 
-          $12, $13, $14, $15, 
-          ST_SetSRID(ST_MakePoint($15, $14), 4326), 
+          $12, $13, $14::numeric, $15::numeric, 
+          ST_SetSRID(ST_MakePoint($15::double precision, $14::double precision), 4326), 
           $16
         ) 
         RETURNING *;
@@ -112,7 +112,7 @@ export class PgPartidaRepository implements IPartidaRepository {
         partida.statusPartida,
       ]);
     } catch (err: any) {
-      console.warn('PostgreSQL inacessível. Armazenando partida em memória:', err.message);
+      console.error('[ERRO BANCO] Falha ao gravar partida no PostgreSQL. Registro mantido apenas em memória:', err.message);
     }
     this.memoriaFallback.set(partida.id, partida);
     return partida;
@@ -289,50 +289,18 @@ export class PgPartidaRepository implements IPartidaRepository {
     this.memoriaFallback.set(partida.id, partida);
   }
 
-  public async listarPorOrganizador(organizadorId: string, incluirCanceladasEFinalizadas = true): Promise<Partida[]> {
-    try {
-      let query = `
-        SELECT * FROM partida 
-        WHERE organizador_id = $1
-      `;
-      if (!incluirCanceladasEFinalizadas) {
-        query += ` AND deletado_em IS NULL AND status_partida IN ('Publicada', 'Lotada')`;
-      }
-      query += ` ORDER BY criado_em DESC, data_hora DESC;`;
-      const res = await db.query(query, [organizadorId]);
-      if (res.rows.length > 0) {
-        return res.rows.map(this.mapToEntity);
-      }
-      return [];
-    } catch (err: any) {
-      console.warn('Falha na consulta PostgreSQL listarPorOrganizador:', err.message);
-    }
-
-    // Fallback em memória (retorna partidas do organizador)
-    return Array.from(this.memoriaFallback.values())
-      .filter((p) => p.organizadorId === organizadorId)
-      .filter((p) => incluirCanceladasEFinalizadas || (p.statusPartida !== StatusPartidaEnum.CANCELADA && p.statusPartida !== StatusPartidaEnum.FINALIZADA));
-  }
-
   public async softDelete(id: string, usuarioId: string): Promise<void> {
     try {
       const query = `
         UPDATE partida 
-        SET deletado_em = NOW(), deletado_por = $2, status_partida = 'Cancelada', atualizado_em = NOW() 
+        SET deletado_em = NOW(), deletado_por_id = $2, status_partida = 'Cancelada', atualizado_em = NOW() 
         WHERE id = $1;
       `;
       await db.query(query, [id, usuarioId]);
     } catch (err: any) {
       console.warn('Falha no softDelete de partida no PostgreSQL:', err.message);
     }
-
-    // Atualiza fallback em memória
-    const partidaMemoria = this.memoriaFallback.get(id);
-    if (partidaMemoria) {
-      (partidaMemoria as any).props.statusPartida = StatusPartidaEnum.CANCELADA;
-      (partidaMemoria as any).props.deletadoEm = new Date();
-      (partidaMemoria as any).props.deletadoPor = usuarioId;
-    }
+    this.memoriaFallback.delete(id);
   }
 
   public async verificarConflitoHorarioOrganizador(

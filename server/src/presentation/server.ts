@@ -13,6 +13,7 @@ import { PgAuditoriaRepository } from '../infrastructure/repositories/PgAuditori
 import { PgCodigoVerificacaoRepository } from '../infrastructure/repositories/PgCodigoVerificacaoRepository';
 import { BcryptPasswordHasher } from '../infrastructure/security/BcryptPasswordHasher';
 import { FastifyJwtTokenService } from '../infrastructure/security/JwtTokenService';
+import { db } from '../infrastructure/database/connection';
 import { WebSocketGateway } from '../infrastructure/websocket/WebSocketGateway';
 import { MatchSchedulerWorker } from '../infrastructure/jobs/MatchSchedulerWorker';
 
@@ -35,6 +36,9 @@ import { AvaliarAtletaUseCase } from '../application/use-cases/AvaliarAtletaUseC
 import { EnviarMensagemChatUseCase } from '../application/use-cases/EnviarMensagemChatUseCase';
 import { ListarMensagensChatUseCase } from '../application/use-cases/ListarMensagensChatUseCase';
 import { ConsultarHistoricoAuditoriaUseCase } from '../application/use-cases/ConsultarHistoricoAuditoriaUseCase';
+import { EntrarComGoogleUseCase } from '../application/use-cases/EntrarComGoogleUseCase';
+import { AlterarSenhaUseCase } from '../application/use-cases/AlterarSenhaUseCase';
+import { GoogleIdTokenVerifier } from '../infrastructure/security/GoogleIdTokenVerifier';
 
 // Apresentação - Controladores & Rotas
 import { AuthController } from './controllers/AuthController';
@@ -55,6 +59,28 @@ import { createAuditRoutes } from './routes/auditRoutes';
 
 dotenv.config();
 
+
+// Diagnóstico de inicialização: deixa explícito se o PostgreSQL está acessível.
+// Sem isso, os repositórios gravam em memória e a falha passa despercebida.
+export async function verificarBancoDeDados(): Promise<void> {
+  try {
+    await db.query('SELECT 1');
+    const tabelas = ['usuario', 'partida', 'solicitacao', 'avaliacao', 'chat_mensagem'];
+    const res = await db.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1)",
+      [tabelas]
+    );
+    const faltando = tabelas.filter((t) => !res.rows.some((r: any) => r.table_name === t));
+    if (faltando.length > 0) {
+      console.error(`\n[ERRO BANCO] Tabelas ausentes: ${faltando.join(', ')}. Rode: npm run db:setup\n`);
+    } else {
+      console.log('[OK] PostgreSQL conectado e tabelas encontradas.');
+    }
+  } catch (err: any) {
+    console.error(`\n[ERRO BANCO] Não foi possível conectar ao PostgreSQL: ${err.message}\nVerifique DATABASE_URL no server/.env e se o container/serviço está rodando.\n`);
+  }
+}
+
 export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWorker } {
   const app = Fastify({ logger: true });
 
@@ -69,8 +95,7 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   // 3. Repositórios
   const usuarioRepo = new PgUsuarioRepository();
   const partidaRepo = new PgPartidaRepository();
-  const solicitacaoRepo = new PgSolicitacaoRepository();
-  solicitacaoRepo.setRepositories(partidaRepo, usuarioRepo);
+  const solicitacaoRepo = new PgSolicitacaoRepository(usuarioRepo, partidaRepo);
   const avaliacaoRepo = new PgAvaliacaoRepository();
   const mensagemRepo = new PgMensagemChatRepository();
   const auditoriaRepo = new PgAuditoriaRepository();
@@ -108,15 +133,17 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   const scheduler = new MatchSchedulerWorker(partidaRepo, finalizarPartidaUseCase);
 
   // 6. Controladores
-  const authController = new AuthController(registrarUsuarioUseCase, autenticarUsuarioUseCase, enviarCodigoUseCase);
-  const usuarioController = new UsuarioController(listarUsuariosUseCase, atualizarPerfilUseCase);
+  const googleVerifier = new GoogleIdTokenVerifier(process.env.GOOGLE_CLIENT_ID);
+  const entrarComGoogleUseCase = new EntrarComGoogleUseCase(usuarioRepo, passwordHasher, tokenService, googleVerifier);
+  const authController = new AuthController(registrarUsuarioUseCase, autenticarUsuarioUseCase, enviarCodigoUseCase, entrarComGoogleUseCase);
+  const alterarSenhaUseCase = new AlterarSenhaUseCase(usuarioRepo, passwordHasher);
+  const usuarioController = new UsuarioController(listarUsuariosUseCase, atualizarPerfilUseCase, alterarSenhaUseCase);
   const partidaController = new PartidaController(
     criarPartidaUseCase,
     consultarMapaPartidasUseCase,
     cancelarPartidaUseCase,
     finalizarPartidaUseCase,
-    softDeletePartidaUseCase,
-    partidaRepo
+    softDeletePartidaUseCase
   );
   const solicitacaoController = new SolicitacaoController(
     criarSolicitacaoUseCase,
@@ -154,6 +181,7 @@ const start = async () => {
   try {
     const port = Number(process.env.PORT) || 3333;
     console.log(`[INFO] Tentando iniciar servidor na porta ${port}...`);
+    await verificarBancoDeDados();
     const address = await app.listen({ port, host: '0.0.0.0' });
     console.log(`🚀 Bora! App Backend rodando em ${address}`);
 

@@ -1,12 +1,31 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ListarUsuariosUseCase } from '../../application/use-cases/ListarUsuariosUseCase';
 import { AtualizarPerfilUseCase } from '../../application/use-cases/AtualizarPerfilUseCase';
+import { AlterarSenhaUseCase } from '../../application/use-cases/AlterarSenhaUseCase';
 
 export class UsuarioController {
   constructor(
     private listarUsuariosUseCase: ListarUsuariosUseCase,
-    private atualizarPerfilUseCase: AtualizarPerfilUseCase
+    private atualizarPerfilUseCase: AtualizarPerfilUseCase,
+    private alterarSenhaUseCase?: AlterarSenhaUseCase
   ) {}
+
+  public changePassword = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const body = (req.body as any) || {};
+      if (!this.alterarSenhaUseCase) {
+        return reply.status(503).send({ error: 'Alteração de senha indisponível.' });
+      }
+      await this.alterarSenhaUseCase.execute({
+        usuarioId: body.usuarioId || (req.user as any)?.id,
+        senhaAtual: body.senhaAtual,
+        novaSenha: body.novaSenha,
+      });
+      return reply.status(200).send({ message: 'Senha alterada com sucesso.' });
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message || 'Não foi possível alterar a senha.' });
+    }
+  };
 
   public listAll = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {

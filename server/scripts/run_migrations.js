@@ -1,13 +1,14 @@
-﻿const pg = require('pg');
+require('dotenv').config();
+const pg = require('pg');
 const fs = require('fs');
 const path = require('path');
 
 async function migrate() {
   const client = new pg.Client({
-    connectionString: 'postgres://postgres:postgres@localhost:5432/bora_app_db'
+    connectionString: process.env.DATABASE_URL || 'postgres://postgres:524231@localhost:5432/bora_app_db'
   });
   await client.connect();
-  console.log('Conectado ao PostgreSQL bora_app_db!');
+  console.log('Conectado ao PostgreSQL.');
 
   const migrationsDir = path.join(__dirname, '..', 'src', 'infrastructure', 'database', 'migrations');
   const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();

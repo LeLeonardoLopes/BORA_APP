@@ -90,7 +90,7 @@ Para manter a consistência arquitetural, a qualidade de código e o padrão vis
 * **design-system:** Arquitetura de design tokens (primitivos, semânticos e componentes), tipografia, paleta e espaçamentos padronizados.
 * **design:** Governança de identidade visual, psicologia de cores para esportes e ativos gráficos.
 * **ui-styling:** Criação e estilização de interfaces acessíveis e responsivas.
-* **rand & slides:** Diretrizes de tom de voz da marca Bora! e geração de apresentações técnicas de progresso.
+* **rand & slides:** Diretrizes de tom de voz da marca Bora! e geração de apresentações técnicas de progresso.
 
 ---
 
@@ -104,29 +104,32 @@ Para manter a consistência arquitetural, a qualidade de código e o padrão vis
 
 ### Passo 1: Subir o Banco de Dados (Docker)
 Na raiz do projeto:
-`ash
+```bash
 docker compose up -d
-`
+```
 
 ---
 
 ### Passo 2: Executar o Backend (API REST)
-`ash
+```bash
 cd server
 npm install
+npm run db:setup
 npm run dev
-`
+```
+> `npm run db:setup` cria as tabelas e carrega os dados de exemplo (é seguro rodar de novo).
+> Guia completo, incluindo Windows e solução de problemas: [COMO_RODAR_LOCAL.md](./COMO_RODAR_LOCAL.md).
 > Servidor iniciado em http://localhost:3333
 
 ---
 
 ### Passo 3: Executar o Frontend (Client)
 Em outro terminal:
-`ash
+```bash
 cd client
 npm install
 npm run dev
-`
+```
 > Aplicação acessível no navegador em http://localhost:5173
 
 ---

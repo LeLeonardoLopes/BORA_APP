@@ -56,7 +56,7 @@ export class SoftDeletePartidaUseCase {
           deletadoPor: input.solicitanteId,
           motivo: input.motivo || 'Exclusão solicitada pelo organizador',
         },
-        camposAlterados: ['deletado_em', 'deletado_por', 'status_partida'],
+        camposAlterados: ['deletado_em', 'deletado_por_id', 'status_partida'],
       });
 
       await this.auditoriaRepo.salvar(logAuditoria);

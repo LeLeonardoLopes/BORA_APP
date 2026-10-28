@@ -1,41 +1,46 @@
 import { FastifyInstance } from 'fastify';
-import fastifyWebsocket from '@fastify/websocket';
-import { WebSocket } from 'ws';
+import { IncomingMessage } from 'http';
+import { Duplex } from 'stream';
+import { WebSocket, WebSocketServer, RawData } from 'ws';
 import { IWebSocketNotificationService } from '../../application/repositories/IRepositories';
 
-interface ClienteConectado {
-  socket: WebSocket;
-  usuarioId?: string;
-  partidaId?: string;
-}
+const CAMINHO_WS = '/ws';
+const TAMANHO_MAXIMO_MENSAGEM = 1048576; // 1MB
 
 export class WebSocketGateway implements IWebSocketNotificationService {
   private clientesPorUsuario = new Map<string, Set<WebSocket>>();
   private clientesPorPartida = new Map<string, Set<WebSocket>>();
   private todosClientes = new Set<WebSocket>();
 
+  /**
+   * Usa o pacote `ws` diretamente (modo noServer) e intercepta apenas o upgrade
+   * da rota /ws no servidor HTTP do Fastify. Evita o @fastify/websocket, que
+   * entregava um objeto de conexão incompatível com `socket.send` e causava HTTP 500.
+   */
   public register(app: FastifyInstance): void {
-    app.register(fastifyWebsocket, {
-      options: {
-        maxPayload: 1048576, // 1MB
-      },
-    });
+    const wss = new WebSocketServer({ noServer: true, maxPayload: TAMANHO_MAXIMO_MENSAGEM });
 
-    app.get('/ws', { websocket: true }, (connection: any, req) => {
-      const socket: WebSocket = connection?.socket || connection;
-      if (!socket || typeof socket.send !== 'function') {
+    app.server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+      const url = new URL(req.url || '/', 'http://localhost');
+      if (url.pathname !== CAMINHO_WS) {
+        socket.destroy();
         return;
       }
-      const query = (req.query || {}) as { usuarioId?: string; partidaId?: string };
-      const usuarioId = query.usuarioId;
-      const partidaId = query.partidaId;
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    });
+
+    wss.on('connection', (socket: WebSocket, req: IncomingMessage) => {
+      const url = new URL(req.url || '/', 'http://localhost');
+      const usuarioId = url.searchParams.get('usuarioId') || undefined;
+      const partidaId = url.searchParams.get('partidaId') || undefined;
 
       this.adicionarCliente(socket, usuarioId, partidaId);
 
-      socket.on('message', (messageBuffer: Buffer) => {
+      socket.on('message', (messageBuffer: RawData) => {
         try {
-          const raw = messageBuffer.toString();
-          const data = JSON.parse(raw);
+          const data = JSON.parse(messageBuffer.toString());
 
           if (data.type === 'join_room' && data.partidaId) {
             this.adicionarCliente(socket, data.usuarioId || usuarioId, data.partidaId);
@@ -50,27 +55,18 @@ export class WebSocketGateway implements IWebSocketNotificationService {
         }
       });
 
-      socket.on('close', () => {
-        this.removerCliente(socket, usuarioId, partidaId);
-      });
+      socket.on('close', () => this.removerCliente(socket, usuarioId, partidaId));
+      socket.on('error', () => this.removerCliente(socket, usuarioId, partidaId));
 
-      socket.on('error', () => {
-        this.removerCliente(socket, usuarioId, partidaId);
-      });
-
-      // Envia confirmação de handshake
-      try {
-        socket.send(
-          JSON.stringify({
-            event: 'connected',
-            mensagem: 'Conexão WebSocket Bora! App estabelecida com sucesso.',
-            usuarioId,
-            partidaId,
-          })
-        );
-      } catch (e) {
-        // silencia se conexao fechar
-      }
+      // Confirmação de handshake
+      socket.send(
+        JSON.stringify({
+          event: 'connected',
+          mensagem: 'Conexão WebSocket Bora! App estabelecida com sucesso.',
+          usuarioId,
+          partidaId,
+        })
+      );
     });
   }
 
@@ -78,13 +74,13 @@ export class WebSocketGateway implements IWebSocketNotificationService {
     this.todosClientes.add(socket);
 
     if (usuarioId) {
-      const lista = this.clientesPorUsuario.get(usuarioId) || new Set();
+      const lista = this.clientesPorUsuario.get(usuarioId) || new Set<WebSocket>();
       lista.add(socket);
       this.clientesPorUsuario.set(usuarioId, lista);
     }
 
     if (partidaId) {
-      const lista = this.clientesPorPartida.get(partidaId) || new Set();
+      const lista = this.clientesPorPartida.get(partidaId) || new Set<WebSocket>();
       lista.add(socket);
       this.clientesPorPartida.set(partidaId, lista);
     }

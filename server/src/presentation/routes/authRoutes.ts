@@ -6,6 +6,6 @@ export function createAuthRoutes(authController: AuthController): FastifyPluginA
     app.post('/api/v1/auth/send-code', authController.sendVerificationCode);
     app.post('/api/v1/auth/register', authController.register);
     app.post('/api/v1/auth/login', authController.login);
-    app.post('/api/v1/auth/social-login', authController.socialLogin);
+    app.post('/api/v1/auth/google', authController.googleLogin);
   };
 }

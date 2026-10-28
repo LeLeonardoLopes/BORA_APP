@@ -16,6 +16,18 @@ export interface ViaCepResponse {
 }
 
 export const FRANCA_PONTOS_REFERENCIA: Record<string, { lat: number; lng: number }> = {
+  'poliesportivo': { lat: -20.536850, lng: -47.404210 },
+  'poli': { lat: -20.536850, lng: -47.404210 },
+  'ginasio': { lat: -20.536850, lng: -47.404210 },
+  'ginasio poliesportivo': { lat: -20.536850, lng: -47.404210 },
+  'francisco marques': { lat: -20.536850, lng: -47.404210 },
+  'pedrocao': { lat: -20.536850, lng: -47.404210 },
+  'pedrocão': { lat: -20.536850, lng: -47.404210 },
+  'pedro morilla': { lat: -20.536850, lng: -47.404210 },
+  'morilla': { lat: -20.536850, lng: -47.404210 },
+  'pedro morila': { lat: -20.536850, lng: -47.404210 },
+  'rua dos pracinhas': { lat: -20.536850, lng: -47.404210 },
+  'pracinhas': { lat: -20.536850, lng: -47.404210 },
   'são josé': { lat: -20.534215, lng: -47.401258 },
   'sao jose': { lat: -20.534215, lng: -47.401258 },
   'continental': { lat: -20.534215, lng: -47.401258 },
@@ -75,49 +87,76 @@ export async function geocodificarEndereco(
     return { lat: -20.5388, lng: -47.4005, origem: 'fallback_centro' };
   }
 
-  // 1. Tenta consulta ao serviço de Geocoding OpenStreetMap Nominatim
-  try {
-    const queryCompleta = `${endereco}, ${bairro}, ${cidade}, Brasil`;
+  // 1. Consultas online gratuitas: Nominatim (OpenStreetMap) e, se falhar, Photon (Komoot).
+  // Partes vazias são descartadas para não gerar consultas como "Rua X, , Franca".
+  const partes = (...p: string[]) => p.map((x) => x.trim()).filter(Boolean).join(', ');
+  const consultas = [
+    partes(endereco, bairro, cidade, 'Brasil'),
+    partes(endereco, 'Franca', 'SP', 'Brasil'),
+  ].filter((q, i, arr) => q && arr.indexOf(q) === i);
+
+  const comTimeout = async (url: string, headers: Record<string, string> = {}) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryCompleta)}&limit=1`,
-      {
-        signal: controller.signal,
-        headers: {
-          'Accept-Language': 'pt-BR',
-          'User-Agent': 'BoraApp-Geocoding/1.0',
-        },
-      }
-    );
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon),
-          displayName: data[0].display_name,
-          origem: 'satelite_nominatim',
-        };
-      }
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(url, { signal: controller.signal, headers });
+      return response.ok ? await response.json() : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
-  } catch (err) {
-    // Continua para o fallback local em caso de timeout ou rede
-  }
+  };
 
-  // 2. Fallback de alta precisão com os bairros e pontos conhecidos de Franca/SP
-  const textoLower = buscaTexto.toLowerCase();
-  for (const [chave, coords] of Object.entries(FRANCA_PONTOS_REFERENCIA)) {
-    if (textoLower.includes(chave)) {
+  for (const queryCompleta of consultas) {
+    const dadosNominatim = await comTimeout(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryCompleta)}&limit=1&countrycodes=br`,
+      { 'Accept-Language': 'pt-BR' }
+    );
+    if (Array.isArray(dadosNominatim) && dadosNominatim.length > 0 && dadosNominatim[0].lat && dadosNominatim[0].lon) {
       return {
-        lat: coords.lat,
-        lng: coords.lng,
-        origem: 'base_franca',
+        lat: parseFloat(dadosNominatim[0].lat),
+        lng: parseFloat(dadosNominatim[0].lon),
+        displayName: dadosNominatim[0].display_name,
+        origem: 'satelite_nominatim',
       };
     }
+
+    const dadosPhoton = await comTimeout(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(queryCompleta)}&limit=1&lang=pt&lat=-20.5388&lon=-47.4005`
+    );
+    const feature = dadosPhoton?.features?.[0];
+    if (feature?.geometry?.coordinates) {
+      const [lngPhoton, latPhoton] = feature.geometry.coordinates;
+      const nomePhoton = [feature.properties?.name, feature.properties?.street, feature.properties?.city]
+        .filter(Boolean)
+        .join(', ');
+      return {
+        lat: Number(latPhoton),
+        lng: Number(lngPhoton),
+        displayName: nomePhoton || queryCompleta,
+        origem: 'satelite_nominatim',
+      };
+    }
+  }
+
+  // 2. Fallback local: procura primeiro no ENDEREÇO digitado e só depois no bairro.
+  // (Antes a busca juntava endereço + bairro, e o bairro padrão "São José" vencia o endereço.)
+  const normalizar = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const textoEndereco = normalizar(endereco || '');
+  const textoBairro = normalizar(bairro || '');
+  const chaves = Object.keys(FRANCA_PONTOS_REFERENCIA);
+  const acharChave = (texto: string) => {
+    if (!texto) return null;
+    // Chaves mais longas primeiro, para "poliesportivo" vencer um bairro genérico
+    return [...chaves].sort((a, b) => b.length - a.length).find((c) => texto.includes(normalizar(c))) || null;
+  };
+  const chaveEndereco = acharChave(textoEndereco);
+  const chaveBairro = acharChave(textoBairro);
+  const chaveEscolhida = chaveEndereco || chaveBairro;
+  if (chaveEscolhida) {
+    const coords = FRANCA_PONTOS_REFERENCIA[chaveEscolhida];
+    return { lat: coords.lat, lng: coords.lng, origem: 'base_franca' };
   }
 
   // 3. Fallback para o Centro de Franca
@@ -152,4 +191,78 @@ export function obterLocalizacaoAtualGPS(): Promise<Coordenadas> {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   });
+}
+
+export interface SugestaoEndereco {
+  label: string;
+  lat: number;
+  lng: number;
+}
+
+const FRANCA_BBOX = { minLng: -47.55, maxLng: -47.3, minLat: -20.66, maxLat: -20.45 };
+
+const dentroDeFranca = (lat: number, lng: number) =>
+  lat >= FRANCA_BBOX.minLat && lat <= FRANCA_BBOX.maxLat && lng >= FRANCA_BBOX.minLng && lng <= FRANCA_BBOX.maxLng;
+
+/**
+ * Sugestões enquanto a pessoa digita (autocomplete).
+ * Junta: locais conhecidos de Franca (catálogo local) + resultados do Photon (Komoot), com viés para Franca.
+ */
+export async function buscarSugestoesEndereco(texto: string): Promise<SugestaoEndereco[]> {
+  const termo = texto.trim();
+  if (termo.length < 3) return [];
+
+  const sugestoes: SugestaoEndereco[] = [];
+  const normalizar = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const termoNorm = normalizar(termo);
+
+  // 1. Locais conhecidos (catálogo local) que contenham o texto digitado
+  try {
+    const { CATALOGO_ARENAS_FRANCA } = await import('../data/francaArenas');
+    for (const arena of CATALOGO_ARENAS_FRANCA) {
+      const alvo = normalizar(`${arena.nome} ${arena.endereco} ${arena.bairro}`);
+      if (alvo.includes(termoNorm)) {
+        sugestoes.push({ label: `${arena.nome} — ${arena.endereco}`, lat: arena.lat, lng: arena.lng });
+      }
+    }
+  } catch {
+    // catálogo indisponível: segue só com o Photon
+  }
+
+  // 2. Photon (Komoot): busca de endereços com viés para o centro de Franca
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const response = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(`${termo} Franca SP`)}&limit=6&lang=pt&lat=-20.5388&lon=-47.4005`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (response.ok) {
+      const data = await response.json();
+      for (const f of data?.features || []) {
+        const [lng, lat] = f.geometry?.coordinates || [];
+        if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+        if (!dentroDeFranca(lat, lng)) continue;
+        const p = f.properties || {};
+        const partes = [p.name, p.street, p.housenumber, p.district, p.city].filter(Boolean);
+        const label = partes.join(', ');
+        if (!label) continue;
+        sugestoes.push({ label, lat, lng });
+      }
+    }
+  } catch {
+    // sem internet ou timeout: mantém só as sugestões locais
+  }
+
+  // Remove duplicadas (mesmo nome/coordenada) e limita a 8 opções
+  const vistos = new Set<string>();
+  return sugestoes
+    .filter((s) => {
+      const chave = `${s.label.toLowerCase()}|${s.lat.toFixed(4)}|${s.lng.toFixed(4)}`;
+      if (vistos.has(chave)) return false;
+      vistos.add(chave);
+      return true;
+    })
+    .slice(0, 8);
 }

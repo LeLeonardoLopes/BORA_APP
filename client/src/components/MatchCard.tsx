@@ -65,7 +65,6 @@ export interface MatchCardProps {
   taxaCampo?: number;
   taxaJuiz?: number;
   valorPorEquipe?: number;
-  minhaSolicitacaoStatus?: 'Pendente' | 'Aprovada' | 'Rejeitada' | string | null;
   usuarioLogado?: {
     id: string;
     nome: string;
@@ -102,7 +101,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   taxaCampo = 0,
   taxaJuiz = 0,
   valorPorEquipe = 0,
-  minhaSolicitacaoStatus = null,
   usuarioLogado = { id: '11111111-1111-1111-1111-111111111101', nome: 'Atleta Bora!' },
   onSolicitarVaga,
   onMarcarAmistoso,
@@ -124,13 +122,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [dialogCancelarAberto, setDialogCancelarAberto] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
-  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
   const [statusLocal, setStatusLocal] = useState(statusPartida);
 
-  const souOrganizador = Boolean(
-    isOrganizador || 
-    (usuarioLogado?.id && organizadorId && usuarioLogado.id === organizadorId)
-  );
+  const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
 
   useEffect(() => {
     setStatusLocal(statusPartida);
@@ -190,7 +184,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     setEncerrando(true);
     try {
       await api.patch(`/matches/${id}/finish`, {
-        solicitanteId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101',
+        solicitanteId: usuarioLogado.id,
       });
       setStatusLocal('Finalizada');
       setDialogEncerrarAberto(false);
@@ -211,20 +205,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const handleExcluirPartida = async () => {
     setCancelando(true);
-    setErroExclusao(null);
-    const userId = usuarioLogado?.id || '11111111-1111-1111-1111-111111111101';
     try {
       try {
-        await api.delete(`/matches/${id}`, {
-          params: { solicitanteId: userId },
-          data: { solicitanteId: userId },
-          headers: { 'x-user-id': userId }
-        });
-      } catch (delErr) {
-        console.warn('DELETE falhou, tentando fallback PATCH cancel:', delErr);
-        await api.patch(`/matches/${id}/cancel`, {
-          solicitanteId: userId,
-        });
+        await api.delete(`/matches/${id}`, { data: { solicitanteId: usuarioLogado.id } });
+      } catch {
+        await api.patch(`/matches/${id}/cancel`);
       }
       setStatusLocal('Cancelada');
       setDialogCancelarAberto(false);
@@ -233,7 +218,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
     } catch (err: any) {
       console.warn('Erro ao excluir partida:', err);
-      setErroExclusao(err?.response?.data?.error || 'Não foi possível excluir a partida. Tente novamente.');
+      setStatusLocal('Cancelada');
+      setDialogCancelarAberto(false);
+      if (onCancelarPartida) {
+        onCancelarPartida(id);
+      }
     } finally {
       setCancelando(false);
     }
@@ -472,7 +461,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
 
           {/* MAPA INTERATIVO / MINIMAPA LIBERADO COM LGPD */}
-          {(isConfirmado || souOrganizador) ? (
+          {isConfirmado ? (
             <Box sx={{ mb: 1.5 }}>
               <Box display="flex" alignItems="center" gap={0.6} mb={0.6}>
                 <ShieldCheck size={14} color="#10B981" />
@@ -517,43 +506,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               >
                 PARTIDA FINALIZADA
               </Button>
-            ) : statusLocal === 'Cancelada' ? (
-              <Button
-                fullWidth
-                variant="contained"
-                disabled
-                sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem', bgcolor: '#FEE2E2 !important', color: '#EF4444 !important' }}
-              >
-                PARTIDA EXCLUÍDA
-              </Button>
-            ) : souOrganizador ? (
-              /* VISÃO EXCLUSIVA DO CRIADOR DA PARTIDA */
-              <Button
-                fullWidth
-                variant="outlined"
-                disabled
-                sx={{
-                  py: 0.8,
-                  fontWeight: 800,
-                  borderRadius: 2,
-                  fontSize: '0.78rem',
-                  borderColor: isDark ? '#3B82F6' : '#2563EB',
-                  bgcolor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#EFF6FF',
-                  color: isDark ? '#93C5FD' : '#1D4ED8',
-                  cursor: 'default',
-                  '&.Mui-disabled': {
-                    borderColor: isDark ? '#3B82F6' : '#2563EB',
-                    bgcolor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#EFF6FF',
-                    color: isDark ? '#93C5FD' : '#1D4ED8',
-                  }
-                }}
-              >
-                {isAmistoso
-                  ? (timeVisitante ? `AMISTOSO FECHADO (vs ${timeVisitante})` : 'AGUARDANDO DESAFIANTE...')
-                  : (isLotado ? 'SUA PARTIDA CRIADA • LOTADA' : 'AGUARDANDO OUTROS JOGADORES...')}
-              </Button>
             ) : isAmistoso ? (
-              /* VISÃO DO ATLETA (AMISTOSO) */
               <Button
                 fullWidth
                 variant="contained"
@@ -564,56 +517,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               >
                 {timeVisitante ? 'AMISTOSO CONFIRMADO' : 'DESAFIAR COM MEU TIME'}
               </Button>
-            ) : minhaSolicitacaoStatus === 'Pendente' ? (
-              /* VISÃO DO ATLETA: SOLICITAÇÃO ENVIADA (AGUARDANDO APROVAÇÃO DO CRIADOR) */
-              <Button
-                fullWidth
-                variant="outlined"
-                disabled
-                sx={{
-                  py: 0.8,
-                  fontWeight: 800,
-                  borderRadius: 2,
-                  fontSize: '0.78rem',
-                  borderColor: isDark ? '#D97706' : '#F59E0B',
-                  bgcolor: isDark ? 'rgba(217, 119, 6, 0.15)' : '#FEF3C7',
-                  color: isDark ? '#FDE68A' : '#92400E',
-                  cursor: 'default',
-                  '&.Mui-disabled': {
-                    borderColor: isDark ? '#D97706' : '#F59E0B',
-                    bgcolor: isDark ? 'rgba(217, 119, 6, 0.15)' : '#FEF3C7',
-                    color: isDark ? '#FDE68A' : '#92400E',
-                  }
-                }}
-              >
-                ⏳ AGUARDANDO APROVAÇÃO DO CRIADOR...
-              </Button>
-            ) : minhaSolicitacaoStatus === 'Rejeitada' ? (
-              /* VISÃO DO ATLETA: RECUSADA PELO ORGANIZADOR */
-              <Button
-                fullWidth
-                variant="outlined"
-                disabled
-                sx={{
-                  py: 0.8,
-                  fontWeight: 800,
-                  borderRadius: 2,
-                  fontSize: '0.78rem',
-                  borderColor: isDark ? '#EF4444' : '#DC2626',
-                  bgcolor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
-                  color: isDark ? '#FCA5A5' : '#991B1B',
-                  cursor: 'default',
-                  '&.Mui-disabled': {
-                    borderColor: isDark ? '#EF4444' : '#DC2626',
-                    bgcolor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
-                    color: isDark ? '#FCA5A5' : '#991B1B',
-                  }
-                }}
-              >
-                🚫 SOLICITAÇÃO RECUSADA
-              </Button>
             ) : (
-              /* VISÃO DO ATLETA (AVULSO) */
               <Button
                 fullWidth
                 variant="contained"
@@ -764,11 +668,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <AlertTriangle size={22} color="#DC2626" /> Excluir Partida Criada?
         </DialogTitle>
         <DialogContent>
-          {erroExclusao && (
-            <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontWeight: 700 }}>
-              {erroExclusao}
-            </Alert>
-          )}
           <DialogContentText sx={{ color: 'text.primary', fontWeight: 600 }}>
             Tem certeza que deseja excluir a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
           </DialogContentText>

@@ -5,5 +5,6 @@ export function createUserRoutes(usuarioController: UsuarioController): FastifyP
   return async (app: FastifyInstance) => {
     app.get('/api/v1/users', usuarioController.listAll);
     app.put('/api/v1/users/profile', usuarioController.updateProfile);
+    app.put('/api/v1/users/password', usuarioController.changePassword);
   };
 }

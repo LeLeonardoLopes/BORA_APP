@@ -12,6 +12,7 @@ export interface IUsuarioRepository {
   buscarPorCpf(cpf: string): Promise<Usuario | null>;
   listarTodos(): Promise<Usuario[]>;
   atualizar(usuario: Usuario): Promise<void>;
+  atualizarSenha?(id: string, senhaHash: string): Promise<void>;
   softDelete(id: string, usuarioId: string): Promise<void>;
 }
 
@@ -26,7 +27,6 @@ export interface IPartidaRepository {
   buscarPorId(id: string): Promise<Partida | null>;
   buscarPorRaio(lat: number, lng: number, raioMetros: number, esporte?: string, endereco?: string): Promise<Partida[]>;
   buscarPartidasExpiradas(agora?: Date): Promise<Partida[]>;
-  listarPorOrganizador?(organizadorId: string, incluirCanceladasEFinalizadas?: boolean): Promise<Partida[]>;
   atualizar(partida: Partida): Promise<void>;
   softDelete(id: string, usuarioId: string): Promise<void>;
   verificarConflitoHorarioOrganizador?(organizadorId: string, dataHora: Date, duracaoMinutos?: number): Promise<boolean>;
@@ -48,8 +48,6 @@ export interface ISolicitacaoDetalhada {
   partidaDataHora: Date;
   partidaBairro: string;
   organizadorId: string;
-  partidaStatus?: string;
-  partidaExcluida?: boolean;
 }
 
 export interface ISolicitacaoRepository {
@@ -111,4 +109,16 @@ export interface IPasswordHasher {
 
 export interface ITokenService {
   gerarToken(payload: { id: string; email: string; genero?: string }): string;
+}
+
+// Identidade confirmada pelo Google (token de ID verificado no servidor)
+export interface IdentidadeGoogle {
+  email: string;
+  nome: string;
+  fotoUrl?: string | null;
+}
+
+export interface IGoogleIdentityVerifier {
+  isConfigured(): boolean;
+  verify(idToken: string): Promise<IdentidadeGoogle>;
 }

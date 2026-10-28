@@ -2,13 +2,15 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { RegistrarUsuarioUseCase } from '../../application/use-cases/RegistrarUsuarioUseCase';
 import { AutenticarUsuarioUseCase } from '../../application/use-cases/AutenticarUsuarioUseCase';
 import { EnviarCodigoVerificacaoUseCase } from '../../application/use-cases/EnviarCodigoVerificacaoUseCase';
+import { EntrarComGoogleUseCase } from '../../application/use-cases/EntrarComGoogleUseCase';
 import { loginRateLimiter } from '../middlewares/rateLimitMiddleware';
 
 export class AuthController {
   constructor(
     private registrarUsuarioUseCase: RegistrarUsuarioUseCase,
     private autenticarUsuarioUseCase: AutenticarUsuarioUseCase,
-    private enviarCodigoUseCase?: EnviarCodigoVerificacaoUseCase
+    private enviarCodigoUseCase?: EnviarCodigoVerificacaoUseCase,
+    private entrarComGoogleUseCase?: EntrarComGoogleUseCase
   ) {}
 
   public sendVerificationCode = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
@@ -110,39 +112,28 @@ export class AuthController {
     }
   };
 
-  public socialLogin = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    try {
-      const body = req.body as any;
-      const provider = body?.provider === 'apple' ? 'apple' : 'google';
-      const email = (body?.email || `${provider}.atleta@boraapp.com.br`).trim().toLowerCase();
-      const nome = body?.nome || (provider === 'apple' ? 'Atleta Apple' : 'Atleta Google');
+  public googleLogin = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const idToken = (req.body as any)?.idToken;
+    if (!idToken || typeof idToken !== 'string') {
+      return reply.status(400).send({ error: 'Token do Google ausente.' });
+    }
 
-      // Tenta autenticar se já existir
-      try {
-        const resultadoLogin = await this.autenticarUsuarioUseCase.execute({
-          email,
-          senha: `SocialAuth@2026_${provider}`,
-        });
-        return reply.status(200).send(resultadoLogin);
-      } catch (err: any) {
-        // Se usuário não existir, cadastra automaticamente com conta limpa
-        if (err.message.includes('Credenciais')) {
-          const resultadoCadastro = await this.registrarUsuarioUseCase.execute({
-            nome,
-            email,
-            senha: `SocialAuth@2026_${provider}`,
-            genero: 'Misto',
-            dataNascimento: '2000-01-01',
-            raioBuscaKm: 5,
-            modalidadesFavoritas: 'Futebol Society',
-          });
-          return reply.status(200).send(resultadoCadastro);
-        }
-        throw err;
-      }
+    if (!this.entrarComGoogleUseCase) {
+      return reply.status(503).send({ error: 'Login com Google não está configurado neste servidor.' });
+    }
+
+    try {
+      const resultado = await this.entrarComGoogleUseCase.execute({ idToken });
+      return reply.status(200).send(resultado);
     } catch (err: any) {
-      req.log.error(err);
-      return reply.status(500).send({ error: 'Erro na autenticação social: ' + err.message });
+      if (err.message.includes('suspensa') || err.message.includes('banida')) {
+        return reply.status(403).send({ error: err.message });
+      }
+      if (err.message.includes('não configurado')) {
+        return reply.status(503).send({ error: 'Login com Google não está configurado neste servidor.' });
+      }
+      req.log.warn({ motivo: err.message }, 'Falha no login com Google');
+      return reply.status(401).send({ error: err.message });
     }
   };
 }

@@ -1,25 +1,20 @@
 import { db } from '../database/connection';
 import { Solicitacao } from '../../domain/entities/Solicitacao';
-import { ISolicitacaoRepository, ISolicitacaoDetalhada, IPartidaRepository, IUsuarioRepository } from '../../application/repositories/IRepositories';
-import { StatusSolicitacaoEnum, StatusPartidaEnum } from '../../domain/enums/StatusEnums';
+import {
+  ISolicitacaoRepository,
+  ISolicitacaoDetalhada,
+  IUsuarioRepository,
+  IPartidaRepository,
+} from '../../application/repositories/IRepositories';
+import { StatusSolicitacaoEnum } from '../../domain/enums/StatusEnums';
 
 export class PgSolicitacaoRepository implements ISolicitacaoRepository {
   private memoriaFallback = new Map<string, Solicitacao>();
-  private usuarioRepo?: IUsuarioRepository;
-  private partidaRepo?: IPartidaRepository;
 
   constructor(
-    usuarioRepo?: IUsuarioRepository,
-    partidaRepo?: IPartidaRepository
-  ) {
-    this.usuarioRepo = usuarioRepo;
-    this.partidaRepo = partidaRepo;
-  }
-
-  public setRepositories(partidaRepo: IPartidaRepository, usuarioRepo: IUsuarioRepository) {
-    this.partidaRepo = partidaRepo;
-    this.usuarioRepo = usuarioRepo;
-  }
+    private usuarioRepo?: IUsuarioRepository,
+    private partidaRepo?: IPartidaRepository
+  ) {}
 
   public async criar(solicitacao: Solicitacao): Promise<Solicitacao> {
     try {
@@ -83,9 +78,11 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
   }
 
   public async listarTodasDetalhes(): Promise<ISolicitacaoDetalhada[]> {
+    let linhasBanco: ISolicitacaoDetalhada[] = [];
+
     try {
       const res = await db.query(`
-        SELECT 
+        SELECT
           s.id,
           s.partida_id as "partidaId",
           s.usuario_id as "usuarioId",
@@ -100,47 +97,60 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
           p.descricao as "partidaDescricao",
           p.data_hora as "partidaDataHora",
           p.bairro as "partidaBairro",
-          p.organizador_id as "organizadorId",
-          p.status_partida as "partidaStatus",
-          (p.deletado_em IS NOT NULL) as "partidaExcluida"
+          p.organizador_id as "organizadorId"
         FROM solicitacao s
-        LEFT JOIN usuario u ON s.usuario_id = u.id
-        LEFT JOIN partida p ON s.partida_id = p.id
+        JOIN usuario u ON s.usuario_id = u.id
+        JOIN partida p ON s.partida_id = p.id
+        WHERE p.deletado_em IS NULL AND u.deletado_em IS NULL
         ORDER BY s.data_requisicao DESC;
       `);
-      if (res.rows.length > 0) return res.rows;
+      linhasBanco = res.rows;
     } catch (err: any) {
       console.warn('Falha na listagem detalhada de solicitações PostgreSQL:', err.message);
     }
 
-    // Fallback completo em memória
-    const lista: ISolicitacaoDetalhada[] = [];
-    for (const s of Array.from(this.memoriaFallback.values())) {
-      const partida = this.partidaRepo ? await this.partidaRepo.buscarPorId(s.partidaId) : null;
-      const usuario = this.usuarioRepo ? await this.usuarioRepo.buscarPorId(s.usuarioId) : null;
+    // IMPORTANTE: quando o PostgreSQL está indisponível (ou uma solicitação foi
+    // criada enquanto ele estava fora do ar), os registros existem apenas em
+    // `memoriaFallback`. Sem este complemento, o organizador nunca veria a
+    // solicitação recebida, mesmo que ela tenha sido criada com sucesso.
+    const idsJaListados = new Set(linhasBanco.map((r) => r.id));
+    const pendentesDoFallback = Array.from(this.memoriaFallback.values()).filter(
+      (s) => !idsJaListados.has(s.id)
+    );
 
-      lista.push({
-        id: s.id,
-        partidaId: s.partidaId,
-        usuarioId: s.usuarioId,
-        statusSolicitacao: s.statusSolicitacao,
-        dataRequisicao: s.dataRequisicao,
-        dataDecisao: s.dataDecisao,
-        atletaNome: usuario?.nome || 'Atleta Bora!',
+    const linhasFallback: ISolicitacaoDetalhada[] = [];
+    for (const solicitacao of pendentesDoFallback) {
+      const [usuario, partida] = await Promise.all([
+        this.usuarioRepo?.buscarPorId(solicitacao.usuarioId),
+        this.partidaRepo?.buscarPorId(solicitacao.partidaId),
+      ]);
+
+      // Sem os dados da partida não é possível saber quem é o organizador,
+      // então o registro é ignorado nesse caso (não há como exibi-lo).
+      if (!partida) continue;
+
+      linhasFallback.push({
+        id: solicitacao.id,
+        partidaId: solicitacao.partidaId,
+        usuarioId: solicitacao.usuarioId,
+        statusSolicitacao: solicitacao.statusSolicitacao,
+        dataRequisicao: solicitacao.dataRequisicao,
+        dataDecisao: solicitacao.dataDecisao,
+        atletaNome: usuario?.nome || 'Atleta',
         atletaFoto: usuario?.fotoUrl || null,
-        atletaNota: usuario?.notaMedia || 5.0,
-        atletaGenero: usuario?.genero || 'Masculino',
-        partidaEsporte: partida?.esporte || 'Futebol Society',
-        partidaDescricao: partida?.descricao || '',
-        partidaDataHora: partida?.dataHora || new Date(),
-        partidaBairro: partida?.bairro || 'São José',
-        organizadorId: partida?.organizadorId || '',
-        partidaStatus: partida?.statusPartida || 'Publicada',
-        partidaExcluida: Boolean(partida?.statusPartida === StatusPartidaEnum.CANCELADA || (partida as any)?.deletadoEm),
+        atletaNota: usuario?.notaMedia ?? 5,
+        atletaGenero: usuario?.genero || 'Não informado',
+        partidaEsporte: partida.esporte,
+        partidaDescricao: partida.descricao,
+        partidaDataHora: partida.dataHora,
+        partidaBairro: partida.bairro,
+        organizadorId: partida.organizadorId,
       });
     }
 
-    return lista.sort((a, b) => new Date(b.dataRequisicao).getTime() - new Date(a.dataRequisicao).getTime());
+    return [...linhasBanco, ...linhasFallback].sort(
+      (a, b) => new Date(b.dataRequisicao).getTime() - new Date(a.dataRequisicao).getTime()
+    );
   }
 
   public async atualizar(solicitacao: Solicitacao): Promise<void> {

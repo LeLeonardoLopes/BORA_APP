@@ -20,6 +20,7 @@ import {
   Alert, 
   Avatar, 
   TextField, 
+  Autocomplete,
   InputAdornment, 
   Skeleton, 
   Button, 
@@ -60,7 +61,7 @@ import { RatingScreen } from './screens/RatingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { MyMatchesScreen } from './screens/MyMatchesScreen';
 import { api } from './services/api';
-import { geocodificarEndereco, obterLocalizacaoAtualGPS } from './services/geocodingService';
+import { geocodificarEndereco, obterLocalizacaoAtualGPS, buscarSugestoesEndereco, SugestaoEndereco } from './services/geocodingService';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 
@@ -149,9 +150,29 @@ export const App: React.FC = () => {
     try {
       const coords = await geocodificarEndereco(enderecoBusca.trim());
       setCoordBusca(coords);
+      if (coords.origem === 'fallback_centro') {
+        setToastMensagem('Não consegui localizar esse endereço. Tente incluir o bairro ou use o GPS.');
+      }
+    } catch (e) {
+      setToastMensagem('Erro ao buscar o endereço. Verifique sua conexão e tente novamente.');
     } finally {
       setBuscandoEndereco(false);
     }
+  }, [enderecoBusca]);
+
+  const [sugestoesEndereco, setSugestoesEndereco] = useState<SugestaoEndereco[]>([]);
+
+  // Sugestões de endereço enquanto digita (com atraso para não buscar a cada tecla)
+  useEffect(() => {
+    if (enderecoBusca.trim().length < 3) {
+      setSugestoesEndereco([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const lista = await buscarSugestoesEndereco(enderecoBusca);
+      setSugestoesEndereco(lista);
+    }, 400);
+    return () => clearTimeout(timer);
   }, [enderecoBusca]);
 
   const usarMinhaLocalizacaoAtual = useCallback(async () => {
@@ -160,8 +181,13 @@ export const App: React.FC = () => {
       const coords = await obterLocalizacaoAtualGPS();
       setCoordBusca(coords);
       setEnderecoBusca('');
-    } catch (e) {
-      // Se o usuário negar a permissão de GPS, mantém a última busca/base atual.
+    } catch (e: any) {
+      const negado = e?.code === 1;
+      setToastMensagem(
+        negado
+          ? 'Permissão de localização negada. Libere o acesso à localização no navegador e tente de novo.'
+          : 'Não foi possível obter sua localização agora. Digite seu endereço.'
+      );
     } finally {
       setBuscandoEndereco(false);
     }
@@ -464,11 +490,8 @@ export const App: React.FC = () => {
     }
 
     try {
-      const userId = usuarioLogado?.id || '';
-      await api.post(`/matches/${id}/requests`, { usuarioId: userId }, { headers: { 'x-user-id': userId } });
-      setToastMensagem('Solicitação enviada com sucesso! Aguarde a aprovação do criador da partida.');
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['matches'] });
+      await api.post(`/matches/${id}/requests`, { usuarioId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101' });
+      setToastMensagem('Solicitação enviada com sucesso! O organizador receberá a notificação para aprovação.');
     } catch (e: any) {
       const msgErro = e.response?.data?.error || 'Erro ao solicitar vaga.';
       setToastMensagem(msgErro);
@@ -599,60 +622,79 @@ export const App: React.FC = () => {
                   </ToggleButton>
                 </ToggleButtonGroup>
 
-                <Chip
-                  label={raioKm >= 20 ? 'Toda Franca/SP' : `${raioKm} km de raio`}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                  sx={{ fontWeight: 800 }}
-                />
               </Box>
 
-              {/* CAMPO DE ENDEREÇO: busca partidas a partir da localização real do usuário */}
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Meu endereço (rua, bairro ou CEP) para buscar por perto..."
-                value={enderecoBusca}
-                onChange={(e) => setEnderecoBusca(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') buscarPorEndereco();
+              {/* CAMPO DE ENDEREÇO: sugestões enquanto digita e busca por perto */}
+              <Autocomplete
+                freeSolo
+                disableClearable
+                filterOptions={(opcoes) => opcoes}
+                options={sugestoesEndereco}
+                getOptionLabel={(opcao) => (typeof opcao === 'string' ? opcao : opcao.label)}
+                inputValue={enderecoBusca}
+                onInputChange={(_, valor, motivo) => {
+                  if (motivo === 'input' || motivo === 'clear') setEnderecoBusca(valor);
                 }}
-                helperText={
-                  coordBusca.origem === 'gps_dispositivo'
-                    ? '📍 Usando sua localização atual (GPS)'
-                    : coordBusca.origem && coordBusca.origem !== 'fallback_centro'
-                      ? `📍 Buscando a partir de: ${coordBusca.displayName || enderecoBusca || 'endereço informado'}`
-                      : '📍 Buscando a partir do centro de Franca/SP (informe seu endereço para refinar)'
-                }
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LocationOnIcon fontSize="small" sx={{ color: isDark ? '#60A5FA' : '#0066FF' }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title="Usar minha localização atual (GPS)">
-                        <span>
-                          <IconButton size="small" onClick={usarMinhaLocalizacaoAtual} disabled={buscandoEndereco}>
-                            <MyLocationIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <IconButton size="small" onClick={buscarPorEndereco} disabled={buscandoEndereco || !enderecoBusca.trim()}>
-                        <Search size={18} />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    borderRadius: 3,
-                    bgcolor: 'background.paper',
-                    fontWeight: 600,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                    mb: 2
+                onChange={(_, escolha) => {
+                  if (typeof escolha === 'string') {
+                    buscarPorEndereco();
+                    return;
                   }
+                  setEnderecoBusca(escolha.label);
+                  setCoordBusca({ lat: escolha.lat, lng: escolha.lng, origem: 'satelite_nominatim', displayName: escolha.label });
                 }}
+                noOptionsText="Digite pelo menos 3 letras para ver sugestões"
+                renderOption={(props, opcao) => (
+                  <li {...props} key={`${opcao.label}-${opcao.lat}-${opcao.lng}`}>
+                    📍 {opcao.label}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    fullWidth
+                    size="small"
+                    placeholder="Meu endereço (rua, bairro ou CEP) para buscar por perto..."
+                    helperText={
+                      coordBusca.origem === 'gps_dispositivo'
+                        ? '📍 Usando sua localização atual (GPS)'
+                        : coordBusca.origem === 'fallback_centro'
+                          ? '📍 Endereço não localizado. Tente incluir o bairro ou use o GPS.'
+                          : coordBusca.origem
+                            ? `📍 Buscando a partir de: ${coordBusca.displayName || enderecoBusca || 'endereço informado'}`
+                            : 'Informe seu endereço ou use o GPS para ver partidas perto de você.'
+                    }
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LocationOnIcon fontSize="small" sx={{ color: isDark ? '#60A5FA' : '#0066FF' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title="Usar minha localização atual (GPS)">
+                            <span>
+                              <IconButton size="small" onClick={usarMinhaLocalizacaoAtual} disabled={buscandoEndereco}>
+                                <MyLocationIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <IconButton size="small" onClick={buscarPorEndereco} disabled={buscandoEndereco || !enderecoBusca.trim()}>
+                            <Search size={18} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      sx: {
+                        borderRadius: 3,
+                        bgcolor: 'background.paper',
+                        fontWeight: 600,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        mb: 2
+                      }
+                    }}
+                  />
+                )}
               />
 
               {/* BARRA DE PESQUISA RÁPIDA POR BAIRRO / LOCAL (filtra dentro do resultado já carregado) */}
@@ -695,7 +737,7 @@ export const App: React.FC = () => {
                       <Box display="flex" alignItems="center" gap={1}>
                         <Compass size={18} color={isDark ? '#60A5FA' : '#0066FF'} />
                         <Typography variant="subtitle2" fontWeight={800} color="text.primary">
-                          Raio de Cobertura (Franca/SP)
+                          Raio de Cobertura
                         </Typography>
                       </Box>
                       <Box display="flex" alignItems="center" gap={1}>
@@ -721,7 +763,7 @@ export const App: React.FC = () => {
                         marks={[
                           { value: 2, label: '2km' },
                           { value: 10, label: '10km' },
-                          { value: 15, label: 'Franca' },
+                          { value: 15, label: '15km' },
                           { value: 25, label: 'Toda Cidade' },
                         ]}
                         valueLabelDisplay="auto"
@@ -982,31 +1024,17 @@ export const App: React.FC = () => {
                       </Button>
                     </Card>
                   ) : (
-                    partidasFiltradas.map((match) => {
-                      const minhaSolicitacao = Array.isArray(solicitacoesData)
-                        ? solicitacoesData.find(
-                            (s: any) =>
-                              (s.partidaId === match.id || s.partida_id === match.id) &&
-                              (s.usuarioId === usuarioLogado?.id || s.usuario_id === usuarioLogado?.id)
-                          )
-                        : null;
-                      const minhaSolicitacaoStatus = minhaSolicitacao?.statusSolicitacao || minhaSolicitacao?.status_solicitacao || null;
-                      const isConfirmado = minhaSolicitacaoStatus === 'Aprovada' || match.isConfirmado;
-
-                      return (
-                        <MatchCard
-                          key={match.id}
-                          {...match}
-                          isConfirmado={isConfirmado}
-                          minhaSolicitacaoStatus={minhaSolicitacaoStatus}
-                          usuarioLogado={usuarioLogado}
-                          onSolicitarVaga={handleSolicitarVaga}
-                          onMarcarAmistoso={handleMarcarAmistoso}
-                          onFinalizarPartida={handleFinalizarPartida}
-                          onCancelarPartida={handleCancelarPartida}
-                        />
-                      );
-                    })
+                    partidasFiltradas.map((match) => (
+                      <MatchCard
+                        key={match.id}
+                        {...match}
+                        usuarioLogado={usuarioLogado}
+                        onSolicitarVaga={handleSolicitarVaga}
+                        onMarcarAmistoso={handleMarcarAmistoso}
+                        onFinalizarPartida={handleFinalizarPartida}
+                        onCancelarPartida={handleCancelarPartida}
+                      />
+                    ))
                   )}
                 </>
               )}
