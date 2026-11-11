@@ -48,6 +48,14 @@ export interface ISolicitacaoDetalhada {
   partidaDataHora: Date;
   partidaBairro: string;
   organizadorId: string;
+  organizadorNome?: string | null;
+  partidaStatus?: string | null;
+  partidaDuracaoMinutos?: number | null;
+  partidaMaxVagas?: number | null;
+  partidaVagasPreenchidas?: number | null;
+  partidaLat?: number | null;
+  partidaLng?: number | null;
+  partidaEndereco?: string | null;
 }
 
 export interface ISolicitacaoRepository {

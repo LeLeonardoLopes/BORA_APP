@@ -66,4 +66,36 @@ export class AutenticarUsuarioUseCase {
       },
     };
   }
+
+  public async autenticarSemSenha(email: string): Promise<AutenticarUsuarioOutput | null> {
+    const emailSanitizado = email.trim().toLowerCase();
+    const usuario = await this.usuarioRepo.buscarPorEmail(emailSanitizado);
+
+    if (!usuario) {
+      return null;
+    }
+
+    if (usuario.statusUsuario === StatusUsuarioEnum.SUSPENSO) {
+      throw new Error('Conta suspensa por baixa avaliação média (< 2.0).');
+    }
+
+    if (usuario.statusUsuario === StatusUsuarioEnum.BANIDO) {
+      throw new Error('Conta banida por violação dos termos de uso da comunidade.');
+    }
+
+    const token = this.tokenService.gerarToken({ id: usuario.id, email: usuario.email, genero: usuario.genero });
+
+    return {
+      token,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        genero: usuario.genero,
+        raioBuscaKm: usuario.raioBuscaKm,
+        notaMedia: usuario.notaMedia,
+        fotoUrl: usuario.fotoUrl,
+      },
+    };
+  }
 }

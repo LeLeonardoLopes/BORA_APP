@@ -97,10 +97,19 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
           p.descricao as "partidaDescricao",
           p.data_hora as "partidaDataHora",
           p.bairro as "partidaBairro",
-          p.organizador_id as "organizadorId"
+          p.organizador_id as "organizadorId",
+          uo.nome as "organizadorNome",
+          p.status_partida as "partidaStatus",
+          p.duracao_minutos as "partidaDuracaoMinutos",
+          p.max_vagas as "partidaMaxVagas",
+          p.vagas_preenchidas as "partidaVagasPreenchidas",
+          p.lat as "partidaLat",
+          p.lng as "partidaLng",
+          p.endereco_completo as "partidaEndereco"
         FROM solicitacao s
         JOIN usuario u ON s.usuario_id = u.id
         JOIN partida p ON s.partida_id = p.id
+        LEFT JOIN usuario uo ON p.organizador_id = uo.id
         WHERE p.deletado_em IS NULL AND u.deletado_em IS NULL
         ORDER BY s.data_requisicao DESC;
       `);
@@ -145,6 +154,14 @@ export class PgSolicitacaoRepository implements ISolicitacaoRepository {
         partidaDataHora: partida.dataHora,
         partidaBairro: partida.bairro,
         organizadorId: partida.organizadorId,
+        organizadorNome: (await this.usuarioRepo?.buscarPorId(partida.organizadorId))?.nome || null,
+        partidaStatus: partida.statusPartida,
+        partidaDuracaoMinutos: partida.duracaoMinutos,
+        partidaMaxVagas: partida.maxVagas,
+        partidaVagasPreenchidas: partida.vagasPreenchidas,
+        partidaLat: partida.lat,
+        partidaLng: partida.lng,
+        partidaEndereco: partida.enderecoCompleto,
       });
     }
 

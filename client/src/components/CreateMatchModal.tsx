@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -37,7 +37,8 @@ import {
   Clock,
   AlertTriangle
 } from 'lucide-react';
-import { geocodificarEndereco, obterLocalizacaoAtualGPS, consultarViaCep, Coordenadas } from '../services/geocodingService';
+import { geocodificarEndereco, obterLocalizacaoAtualGPS, consultarViaCep, reverterCoordenadasParaEndereco, Coordenadas } from '../services/geocodingService';
+import { obterClimaFranca, PrevisaoClima } from '../services/weatherService';
 import { CATALOGO_ARENAS_FRANCA, ArenaFranca } from '../data/francaArenas';
 import { InteractiveMapPicker } from './InteractiveMapPicker';
 
@@ -113,11 +114,24 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   const [bairro, setBairro] = useState('');
   const [enderecoCompleto, setEnderecoCompleto] = useState('');
   const [coordenadas, setCoordenadas] = useState<Coordenadas>({
-    lat: -20.534215,
-    lng: -47.401258,
-    origem: 'base_franca',
+    lat: -20.5386,
+    lng: -47.4008,
+    origem: 'fallback_centro',
   });
   const [buscandoGeo, setBuscandoGeo] = useState(false);
+  const [climaPrevisto, setClimaPrevisto] = useState<PrevisaoClima | null>(null);
+  const debounceGeoRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let ativo = true;
+    obterClimaFranca(coordenadas.lat, coordenadas.lng, dataHora || undefined).then((dados) => {
+      if (ativo) setClimaPrevisto(dados);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [coordenadas.lat, coordenadas.lng, dataHora, open]);
 
   // BOTÃO "MAIS OPÇÕES" (ACORDEÃO RECOLHÍVEL)
   const [mostrarMaisOpcoes, setMostrarMaisOpcoes] = useState(false);
@@ -153,7 +167,114 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   }, [open]);
 
   // Atualização manual de endereço ou bairro com geocodificação
-  const handleAtualizarEnderecoOuBairro = async (novoEnd: string, novoBairro: string) => {
+  const BAIRROS_FRANCA_OPCOES = [
+    'Centro',
+    'Cidade Nova',
+    'City Petrópolis',
+    'Estação',
+    'Jardim Aeroporto I',
+    'Jardim Aeroporto III',
+    'Jardim Ângela Rosa',
+    'Jardim Brasilândia',
+    'Jardim Califórnia',
+    'Jardim Consolação',
+    'Jardim Dermínio',
+    'Jardim Francano',
+    'Jardim Lima',
+    'Jardim Noêmia',
+    'Jardim Paulistano',
+    'Jardim Redentor',
+    'Leporace',
+    'Parque do Horto',
+    'Parque Progresso',
+    'Parque Universitário',
+    'Poli Esportivo',
+    'Residencial Amazonas',
+    'Residencial Palermo',
+    'Santa Cruz',
+    'São Joaquim',
+    'São José',
+    'Vila Formosa',
+    'Vila Gosuen',
+    'Vila Imperador',
+    'Vila Nicácio',
+    'Vila Nova',
+    'Vila Santos Dumont',
+    'Vila São Sebastião',
+  ];
+
+  const [bairroEditadoManualmente, setBairroEditadoManualmente] = useState(false);
+
+  const handleLimparLocalizacao = () => {
+    if (debounceGeoRef.current) clearTimeout(debounceGeoRef.current);
+    setEnderecoCompleto('');
+    setBairro('');
+    setArenaSelecionada(null);
+    setBairroEditadoManualmente(true);
+    setCoordenadas({
+      lat: -20.5386,
+      lng: -47.4008,
+      origem: 'fallback_centro',
+    });
+  };
+
+  const handleBuscarLocalManual = async () => {
+    if (!enderecoCompleto.trim() && !bairro.trim()) return;
+    if (debounceGeoRef.current) clearTimeout(debounceGeoRef.current);
+    setBuscandoGeo(true);
+    try {
+      const geo = await geocodificarEndereco(enderecoCompleto, bairro);
+      setCoordenadas(geo);
+      if (geo.bairroDetectado && !bairro.trim()) {
+        setBairro(geo.bairroDetectado);
+      }
+      if (geo.enderecoDetectado && enderecoCompleto.trim().length < 5) {
+        setEnderecoCompleto(geo.enderecoDetectado);
+      }
+    } finally {
+      setBuscandoGeo(false);
+    }
+  };
+
+  // Quando o usuário altera o ENDEREÇO COMPLETO
+  const handleAlterarEndereco = (novoEnd: string) => {
+    setEnderecoCompleto(novoEnd);
+    if (debounceGeoRef.current) clearTimeout(debounceGeoRef.current);
+    if (novoEnd.trim().length < 4) return;
+    debounceGeoRef.current = setTimeout(async () => {
+      setBuscandoGeo(true);
+      try {
+        const geo = await geocodificarEndereco(novoEnd, bairro);
+        setCoordenadas(geo);
+        // Só preenche o bairro automaticamente se o campo bairro estiver vazio e não tiver sido apagado manualmente
+        if (geo.bairroDetectado && !bairro.trim() && !bairroEditadoManualmente) {
+          setBairro(geo.bairroDetectado);
+        }
+      } finally {
+        setBuscandoGeo(false);
+      }
+    }, 600);
+  };
+
+  // Quando o usuário altera ou escolhe o BAIRRO manualmente (NUNCA sobrescreve de volta para São José!)
+  const handleAlterarBairro = (novoBairro: string) => {
+    setBairroEditadoManualmente(true);
+    setBairro(novoBairro);
+    if (debounceGeoRef.current) clearTimeout(debounceGeoRef.current);
+    if (novoBairro.trim().length < 3) return;
+    debounceGeoRef.current = setTimeout(async () => {
+      setBuscandoGeo(true);
+      try {
+        // Se o usuário trocou o bairro, geocodificamos priorizando o novo bairro escolhido
+        const geo = await geocodificarEndereco(enderecoCompleto, novoBairro);
+        setCoordenadas(geo);
+      } finally {
+        setBuscandoGeo(false);
+      }
+    }, 550);
+  };
+
+  const _unusedHandleOld = async (novoEnd: string, novoBairro: string) => {
     setEnderecoCompleto(novoEnd);
     setBairro(novoBairro);
     setBuscandoGeo(true);
@@ -171,6 +292,10 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       lat: novaLat,
       lng: novaLng,
       origem: 'ajuste_manual_mapa'
+    });
+    reverterCoordenadasParaEndereco(novaLat, novaLng).then((rev) => {
+      setEnderecoCompleto(rev.enderecoCompleto);
+      setBairro(rev.bairro);
     });
   };
 
@@ -244,7 +369,8 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     try {
       const gps = await obterLocalizacaoAtualGPS();
       setCoordenadas(gps);
-      setEnderecoCompleto(`Local capturado via GPS (${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`);
+      setBairro(gps.bairroDetectado || 'Centro');
+      setEnderecoCompleto(gps.enderecoDetectado || `Local capturado via GPS (${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`);
     } catch (err: any) {
       alert(err.message || 'Não foi possível capturar o GPS.');
     } finally {
@@ -753,7 +879,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                 ⚠️ VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO
               </Typography>
               <Typography variant="caption" sx={{ display: 'block', color: '#B91C1C', fontWeight: 600, lineHeight: 1.3 }}>
-                Conflito detectado com: <strong>{conflitoAgenda.esporte}</strong> ({new Date(conflitoAgenda.dataHora).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}) — <em>Regra RN01 (Anti-conflito de Agenda)</em>. Escolha outro dia ou horário para prosseguir.
+                Conflito detectado com: <strong>{conflitoAgenda.esporte}</strong> ({new Date(conflitoAgenda.dataHora).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}) — <em>Anti-conflito de Agenda</em>. Escolha outro dia ou horário para prosseguir.
               </Typography>
             </Alert>
           )}
@@ -808,8 +934,74 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                 required
                 placeholder="Ex: Av. Alonso y Alonso, 2000"
                 value={enderecoCompleto}
-                onChange={(e) => handleAtualizarEnderecoOuBairro(e.target.value, bairro)}
-                helperText="Digite o local ou posicione o alfinete diretamente no mapa abaixo."
+                onChange={(e) => handleAlterarEndereco(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleBuscarLocalManual();
+                  }
+                }}
+              />
+              <Box display="flex" gap={1.2} alignItems="center" flexWrap={{ xs: 'wrap', sm: 'nowrap' }}>
+                <Autocomplete
+                  freeSolo
+                  fullWidth
+                  size="small"
+                  options={BAIRROS_FRANCA_OPCOES}
+                  value={bairro}
+                  inputValue={bairro}
+                  onInputChange={(_, novoValor, reason) => {
+                    if (reason === 'input' || reason === 'clear') {
+                      handleAlterarBairro(novoValor);
+                    }
+                  }}
+                  onChange={(_, novoValor) => {
+                    handleAlterarBairro(typeof novoValor === 'string' ? novoValor : (novoValor || ''));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Bairro (Franca/SP) — selecione ou digite"
+                      size="small"
+                      fullWidth
+                      placeholder="Selecione na lista ou digite qualquer bairro..."
+                    />
+                  )}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleBuscarLocalManual}
+                  disabled={buscandoGeo}
+                  startIcon={buscandoGeo ? <CircularProgress size={15} color="inherit" /> : <Search size={15} />}
+                  sx={{ fontWeight: 800, textTransform: 'none', px: 2, height: 40, whiteSpace: 'nowrap' }}
+                >
+                  Buscar Local
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleUsarGPSAtual}
+                  disabled={buscandoGeo}
+                  startIcon={<Crosshair size={15} />}
+                  sx={{ fontWeight: 800, textTransform: 'none', px: 1.5, height: 40, whiteSpace: 'nowrap' }}
+                >
+                  Meu GPS
+                </Button>
+                {(bairro || enderecoCompleto) && (
+                  <Button
+                    variant="text"
+                    color="error"
+                    size="small"
+                    onClick={handleLimparLocalizacao}
+                    sx={{ fontWeight: 800, textTransform: 'none', height: 40, whiteSpace: 'nowrap' }}
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </Box>
+              <Box sx={{ display: 'none' }}
+                data-unused="true"
               />
             </Box>
 
@@ -821,6 +1013,55 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
               origemTexto={obterLabelOrigem()}
               buscando={buscandoGeo}
               onChangeCoordinates={handleCoordenadasMudaramNoMapa}
+            />
+            {climaPrevisto && (
+              <Box
+                sx={{
+                  mt: 1.5,
+                  p: 1.5,
+                  px: 2,
+                  borderRadius: 2.5,
+                  bgcolor: climaPrevisto.alertaChuva ? '#FEF2F2' : '#FFFBEB',
+                  border: '1.5px solid',
+                  borderColor: climaPrevisto.alertaChuva ? '#FCA5A5' : '#FDE68A',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1}>
+                  <span style={{ fontSize: '20px' }}>{climaPrevisto.icone}</span>
+                  <Box>
+                    <Typography variant="caption" fontWeight={900} color="text.secondary" display="block">
+                      {climaPrevisto.horarioReferencia} • GPS ({climaPrevisto.coordenadasRef})
+                    </Typography>
+                    <Typography variant="body2" fontWeight={900} color={climaPrevisto.alertaChuva ? 'error.main' : 'text.primary'}>
+                      {climaPrevisto.temperatura}°C (Sensação {climaPrevisto.sensacaoTermica}°C) • {climaPrevisto.condicao}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box display="flex" gap={0.8} flexWrap="wrap">
+                  <Chip
+                    size="small"
+                    label={`💧 Chuva: ${climaPrevisto.probabilidadeChuva}%`}
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: '0.7rem',
+                      bgcolor: climaPrevisto.alertaChuva ? '#FEE2E2' : '#E0F2FE',
+                      color: climaPrevisto.alertaChuva ? '#991B1B' : '#0369A1',
+                    }}
+                  />
+                  <Chip
+                    size="small"
+                    label={`💨 Vento: ${climaPrevisto.velocidadeVentoKmh} km/h`}
+                    sx={{ fontWeight: 800, fontSize: '0.7rem', bgcolor: '#FFFFFF' }}
+                  />
+                </Box>
+              </Box>
+            )}
+            <Box sx={{ display: 'none' }}
             />
           </Box>
 

@@ -75,13 +75,10 @@ export class Partida {
   public get valorPorEquipe(): number { return (this.taxaCampo + this.taxaJuiz) / 2; }
   public get valorPorAtleta(): number { return this.tipoLocal === 'Privada' && this.formatoJogo === 'Avulso' && this.maxVagas > 0 ? this.taxaCampo / this.maxVagas : 0; }
 
-  // Regra RN03: Bloqueio de cancelamento direto quando a partida estiver lotada
-  public cancelar(solicitanteId: string): void {
-    if (solicitanteId !== this.props.organizadorId) {
+  // Permite que o organizador cancele a partida a qualquer momento
+  public cancelar(solicitanteId?: string): void {
+    if (solicitanteId && solicitanteId !== this.props.organizadorId) {
       throw new Error('Apenas o organizador pode solicitar o cancelamento da partida.');
-    }
-    if (this.props.vagasPreenchidas >= this.props.maxVagas) {
-      throw new Error('Regra RN03: Partida com lotação esgotada não pode ser cancelada diretamente. Abra um chamado com o suporte.');
     }
     this.props.statusPartida = StatusPartidaEnum.CANCELADA;
   }
@@ -93,6 +90,16 @@ export class Partida {
     this.props.vagasPreenchidas += 1;
     if (this.props.vagasPreenchidas === this.props.maxVagas) {
       this.props.statusPartida = StatusPartidaEnum.LOTADA;
+    }
+  }
+
+  /** Libera uma vaga quando um atleta aprovado cancela a participação. */
+  public liberarVaga(): void {
+    if (this.props.vagasPreenchidas > 0) {
+      this.props.vagasPreenchidas -= 1;
+    }
+    if (this.props.statusPartida === StatusPartidaEnum.LOTADA && this.props.vagasPreenchidas < this.props.maxVagas) {
+      this.props.statusPartida = StatusPartidaEnum.PUBLICADA;
     }
   }
 

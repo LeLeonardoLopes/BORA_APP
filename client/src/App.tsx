@@ -61,7 +61,16 @@ import { RatingScreen } from './screens/RatingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { MyMatchesScreen } from './screens/MyMatchesScreen';
 import { api } from './services/api';
-import { geocodificarEndereco, obterLocalizacaoAtualGPS, buscarSugestoesEndereco, SugestaoEndereco } from './services/geocodingService';
+import { geocodificarEndereco, obterLocalizacaoAtualGPS, buscarSugestoesEndereco, calcularDistanciaKm, SugestaoEndereco } from './services/geocodingService';
+import {
+  lerPartidasLocais,
+  salvarPartidaLocal,
+  excluirPartidaLocal,
+  partidaFoiExcluida,
+  lerSolicitacoesLocais,
+  salvarSolicitacaoLocal,
+  atualizarStatusSolicitacaoLocal
+} from './services/partidasLocais';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 
@@ -162,16 +171,30 @@ export const App: React.FC = () => {
 
   const [sugestoesEndereco, setSugestoesEndereco] = useState<SugestaoEndereco[]>([]);
 
-  // Sugestões de endereço enquanto digita (com atraso para não buscar a cada tecla)
+  // Sugestões de endereço enquanto digita + geocodificação automática fiel à geolocalização de Franca/SP
   useEffect(() => {
-    if (enderecoBusca.trim().length < 3) {
+    const texto = enderecoBusca.trim();
+    if (texto.length === 0) {
+      setSugestoesEndereco([]);
+      setCoordBusca((prev) =>
+        prev.origem === 'gps_dispositivo'
+          ? prev
+          : { lat: -20.5388, lng: -47.4005, origem: 'fallback_centro' }
+      );
+      return;
+    }
+    if (texto.length < 3) {
       setSugestoesEndereco([]);
       return;
     }
     const timer = setTimeout(async () => {
-      const lista = await buscarSugestoesEndereco(enderecoBusca);
+      const lista = await buscarSugestoesEndereco(texto);
       setSugestoesEndereco(lista);
-    }, 400);
+      const coords = await geocodificarEndereco(texto);
+      if (coords.origem !== 'fallback_centro') {
+        setCoordBusca(coords);
+      }
+    }, 450);
     return () => clearTimeout(timer);
   }, [enderecoBusca]);
 
@@ -193,7 +216,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const [filtroFormato, setFiltroFormato] = useState<'Todos' | 'Avulso' | 'Amistoso_Times'>('Todos');
+  const [filtroFormato, setFiltroFormato] = useState<'Todos' | 'Avulso' | 'Amistoso_Times' | 'Feminino'>('Todos');
   const [filtroEsporte, setFiltroEsporte] = useState<string>('Todos');
   const [filtroTipoLocal, setFiltroTipoLocal] = useState<'Todos' | 'Publica' | 'Privada'>('Todos');
 
@@ -216,62 +239,81 @@ export const App: React.FC = () => {
   } = useQuery<any[]>({
     queryKey: ['matches', raioKm, coordBusca.lat, coordBusca.lng],
     queryFn: async () => {
-      const generoParam = usuarioLogado?.genero ? `&genero=${encodeURIComponent(usuarioLogado.genero)}` : '';
-      const response = await api.get(`/matches?lat=${coordBusca.lat}&lng=${coordBusca.lng}&radius=${raioKm}${generoParam}`);
-      if (response.data && Array.isArray(response.data.data)) {
-        return response.data.data.map((p: any) => {
-          const isAmistoso = p.formatoJogo === 'Amistoso_Times' || p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
-          const isPrivada = p.tipoLocal === 'Privada' || p.descricao?.toLowerCase().includes('arena') || p.descricao?.toLowerCase().includes('privada') || p.descricao?.toLowerCase().includes('sintética') || p.descricao?.toLowerCase().includes('sunset');
-          return {
-            id: p.id,
-            esporte: p.esporte,
-            descricao: p.descricao,
-            dataHora: p.dataHora,
-            duracaoMinutos: p.duracaoMinutos || 90,
-            statusPartida: p.statusPartida || 'Publicada',
-            organizadorId: p.organizadorId || p.organizador_id,
-            isOrganizador: p.isOrganizador || (p.organizadorId === usuarioLogado?.id),
-            bairro: p.bairro,
-            enderecoCompleto: p.enderecoCompleto || `${p.bairro}, Franca/SP`,
-            lat: Number(p.lat),
-            lng: Number(p.lng),
-            vagasPreenchidas: p.vagasPreenchidas || 0,
-            maxVagas: p.maxVagas || 14,
-            filtroGenero: p.filtroGenero || 'Misto',
-            filtroNivel: p.filtroNivel || 'Todos',
-            formatoJogo: p.formatoJogo || (isAmistoso ? 'Amistoso_Times' : 'Avulso'),
-            tipoLocal: p.tipoLocal || (isPrivada ? 'Privada' : 'Publica'),
-            timeMandante: isAmistoso ? (p.timeMandante || 'Equipe de Franca') : undefined,
-            timeVisitante: null,
-            taxaCampo: p.taxaCampo || 0,
-            taxaJuiz: p.taxaJuiz || 0,
-            valorPorEquipe: (p.taxaCampo || 0) / 2,
-            isConfirmado: p.isOrganizador || false,
-          };
-        });
+      const mapearPartida = (p: any) => {
+        const isAmistoso = p.formatoJogo === 'Amistoso_Times' || p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
+        const isPrivada = p.tipoLocal === 'Privada' || p.descricao?.toLowerCase().includes('arena') || p.descricao?.toLowerCase().includes('privada') || p.descricao?.toLowerCase().includes('sintética') || p.descricao?.toLowerCase().includes('sunset');
+        return {
+          id: p.id,
+          esporte: p.esporte,
+          descricao: p.descricao,
+          dataHora: p.dataHora,
+          duracaoMinutos: p.duracaoMinutos || 90,
+          statusPartida: p.statusPartida || 'Publicada',
+          organizadorId: p.organizadorId || p.organizador_id,
+          isOrganizador: Boolean(p.isOrganizador || (usuarioLogado?.id && (p.organizadorId || p.organizador_id) === usuarioLogado.id)),
+          bairro: p.bairro,
+          enderecoCompleto: p.enderecoCompleto || `${p.bairro}, Franca/SP`,
+          lat: Number(p.lat),
+          lng: Number(p.lng),
+          vagasPreenchidas: p.vagasPreenchidas || 0,
+          maxVagas: p.maxVagas || 14,
+          filtroGenero: p.filtroGenero || 'Misto',
+          espacoSeguroFeminino: Boolean(p.espacoSeguroFeminino || p.espaco_seguro_feminino || p.filtroGenero === 'Feminino' || p.filtro_genero === 'Feminino'),
+          filtroNivel: p.filtroNivel || 'Todos',
+          formatoJogo: (isAmistoso ? 'Amistoso_Times' : 'Avulso') as 'Avulso' | 'Amistoso_Times',
+          tipoLocal: p.tipoLocal || (isPrivada ? 'Privada' : 'Publica'),
+          timeMandante: isAmistoso ? (p.timeMandante || 'Equipe de Franca') : undefined,
+          timeVisitante: null,
+          taxaCampo: p.taxaCampo || 0,
+          taxaJuiz: p.taxaJuiz || 0,
+          valorPorEquipe: (p.taxaCampo || 0) / 2,
+          isConfirmado: Boolean(p.isOrganizador || p.isConfirmado || (usuarioLogado?.id && (p.organizadorId || p.organizador_id) === usuarioLogado.id)),
+        };
+      };
+      const lerLocais = (): any[] => lerPartidasLocais();
+      const naoExcluida = (p: any) => !partidaFoiExcluida(p.id);
+      let doBanco: any[] = [];
+      try {
+        const generoParam = usuarioLogado?.genero ? `&genero=${encodeURIComponent(usuarioLogado.genero)}` : '';
+        const response = await api.get(`/matches?lat=${coordBusca.lat}&lng=${coordBusca.lng}&radius=${raioKm}${generoParam}`);
+        if (response.data && Array.isArray(response.data.data)) {
+          doBanco = response.data.data.map(mapearPartida);
+        }
+      } catch {
+        // Servidor offline: segue apenas com as partidas criadas neste navegador
       }
-      return [];
+      // Partidas criadas com o servidor offline continuam aparecendo (e as excluídas nunca voltam)
+      const locais = lerLocais()
+        .filter((l) => !doBanco.some((b: any) => b.id === l.id))
+        .map(mapearPartida);
+      return [...locais, ...doBanco].filter(naoExcluida);
     },
+    initialData: () => [],
     enabled: Boolean(usuarioLogado),
     staleTime: 1000 * 20,
   });
 
-  // Query para sincronizar solicitações pendentes reais do organizador
+  // Query para sincronizar solicitações pendentes reais do organizador e solicitações enviadas pelo atleta
   const { data: solicitacoesData = [] } = useQuery<any[]>({
     queryKey: ['requests', usuarioLogado?.id],
     queryFn: async () => {
+      let doServidor: any[] = [];
       try {
-        const res = await api.get('/requests');
+        const param = usuarioLogado?.id ? `?usuarioId=${encodeURIComponent(usuarioLogado.id)}` : '';
+        const res = await api.get(`/requests${param}`);
         if (res.data && Array.isArray(res.data.data)) {
-          return res.data.data;
+          doServidor = res.data.data;
         }
       } catch {
         // silencia se offline
       }
-      return [];
+      const locais = lerSolicitacoesLocais().filter(
+        (l) => !doServidor.some((s) => s.id === l.id || (s.partidaId === l.partidaId && s.usuarioId === l.usuarioId))
+      );
+      return [...doServidor, ...locais];
     },
     enabled: Boolean(usuarioLogado?.id),
-    staleTime: 1000 * 15,
+    staleTime: 1000 * 10,
   });
 
   useEffect(() => {
@@ -362,15 +404,33 @@ export const App: React.FC = () => {
     };
   }, [usuarioLogado?.id, queryClient]);
 
-  // FILTRAGEM DINÂMICA EM MEMÓRIA
+  // FILTRAGEM DINÂMICA EM MEMÓRIA + CÁLCULO DE DISTÂNCIA REAL EM FRANCA/SP
   const partidasFiltradas = useMemo(() => {
     if (!Array.isArray(partidas)) return [];
 
-    return partidas.filter((match) => {
+    const comDistancia = partidas.map((m) => {
+      const solMinha = Array.isArray(solicitacoesData) && usuarioLogado?.id
+        ? solicitacoesData.find(
+            (s: any) =>
+              s.partidaId === m.id &&
+              (s.usuarioId === usuarioLogado.id || s.usuario_id === usuarioLogado.id) &&
+              s.statusSolicitacao !== 'Cancelada'
+          )
+        : null;
+      const aprovadaPeloOrg = solMinha?.statusSolicitacao === 'Aprovada';
+      return {
+        ...m,
+        isConfirmado: Boolean(m.isConfirmado || m.isOrganizador || aprovadaPeloOrg),
+        enderecoCompleto: aprovadaPeloOrg && solMinha?.partidaEndereco ? solMinha.partidaEndereco : m.enderecoCompleto,
+        minhaSolicitacao: solMinha ? { id: solMinha.id, status: solMinha.statusSolicitacao } : null,
+        distanciaKm: calcularDistanciaKm(coordBusca.lat, coordBusca.lng, Number(m.lat), Number(m.lng)),
+      };
+    });
+
+    const filtradas = comDistancia.filter((match) => {
       if (!match) return false;
 
-      // 0. BLINDAGEM ESPAÇO SEGURO FEMININO (RN06):
-      // Se a partida for exclusiva para mulheres e o perfil for MASCULINO, NÃO aparece no mapa nem na lista!
+      // 0. BLINDAGEM ESPAÇO SEGURO FEMININO:
       const isPartidaFeminina = match.espacoSeguroFeminino === true || 
                                 match.espaco_seguro_feminino === true || 
                                 match.filtroGenero === 'Feminino' || 
@@ -383,8 +443,17 @@ export const App: React.FC = () => {
         return false;
       }
 
-      // 1. Filtro por Formato (Avulso vs Amistoso)
-      if (filtroFormato !== 'Todos' && match.formatoJogo !== filtroFormato) {
+      // 0.5. Filtro de Raio Geográfico real a partir da localização pesquisada/GPS em Franca/SP
+      if (typeof match.distanciaKm === 'number' && match.distanciaKm > raioKm) {
+        return false;
+      }
+
+      // 1. Filtro por Formato (Avulso vs Amistoso vs Partida 100% Feminina)
+      if (filtroFormato === 'Feminino') {
+        if (!isPartidaFeminina) {
+          return false;
+        }
+      } else if (filtroFormato !== 'Todos' && match.formatoJogo !== filtroFormato) {
         return false;
       }
 
@@ -413,7 +482,14 @@ export const App: React.FC = () => {
 
       return true;
     });
-  }, [partidas, filtroFormato, filtroEsporte, filtroTipoLocal, termoBusca]);
+
+    // Ordena pelas partidas mais próximas quando o usuário buscou um endereço ou ativou o GPS
+    if (coordBusca.origem && coordBusca.origem !== 'fallback_centro') {
+      return [...filtradas].sort((a, b) => (a.distanciaKm || 0) - (b.distanciaKm || 0));
+    }
+
+    return filtradas;
+  }, [partidas, solicitacoesData, filtroFormato, filtroEsporte, filtroTipoLocal, termoBusca, coordBusca, raioKm, usuarioLogado?.genero, usuarioLogado?.id]);
 
   const temFiltroAtivo = filtroFormato !== 'Todos' || filtroEsporte !== 'Todos' || filtroTipoLocal !== 'Todos' || Boolean(termoBusca);
 
@@ -455,14 +531,30 @@ export const App: React.FC = () => {
           : 'Partida aberta publicada com sucesso!'
       );
     } catch (err: any) {
-      const msgErro = err.response?.data?.error || err.message || 'Erro ao criar partida.';
-      setToastMensagem(msgErro);
+      const statusErro = err.response?.status;
+      // Servidor offline, sessão offline (token local) ou erro interno: guarda a partida neste navegador
+      // para que ela apareça em Explorar e em Gestão. Apenas erros de validação (400/422) são mostrados.
+      if (!err.response || (statusErro !== 400 && statusErro !== 422)) {
+        try {
+          salvarPartidaLocal(partidaFormatada);
+        } catch {
+          // ignore
+        }
+        setToastMensagem(
+          novaPartida.formatoJogo === 'Amistoso_Times' 
+            ? 'Amistoso publicado! Aguardando equipes adversárias de Franca desafiarem seu time.' 
+            : 'Partida aberta publicada com sucesso!'
+        );
+      } else {
+        const msgErro = err.response?.data?.error || err.message || 'Erro ao criar partida.';
+        setToastMensagem(msgErro);
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ['matches'] });
   };
 
-  const handleSolicitarVaga = async (id: string) => {
+  const handleSolicitarVaga = async (id: string, posicaoPreferida?: string) => {
     const partidaDesejada = partidas.find((p) => p.id === id);
     if (partidaDesejada && partidaDesejada.dataHora) {
       const inicioNova = new Date(partidaDesejada.dataHora).getTime();
@@ -484,18 +576,77 @@ export const App: React.FC = () => {
       });
 
       if (conflito) {
-        setToastMensagem('VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO (RN01 - Anti-conflito de Agenda).');
+        setToastMensagem('VOCÊ JÁ TEM UMA PARTIDA CRIADA NESSE HORÁRIO OU VOCÊ JÁ ESTÁ PARTICIPANDO DE UMA PARTIDA NESTE HORÁRIO.');
         return;
       }
     }
 
+    const sufixoPosicao = posicaoPreferida ? ` (Posição preferida: ${posicaoPreferida})` : '';
+    const usuarioIdEfetivo = usuarioLogado?.id || '11111111-1111-1111-1111-111111111101';
+
     try {
-      await api.post(`/matches/${id}/requests`, { usuarioId: usuarioLogado?.id || '11111111-1111-1111-1111-111111111101' });
-      setToastMensagem('Solicitação enviada com sucesso! O organizador receberá a notificação para aprovação.');
+      const res = await api.post(`/matches/${id}/requests`, {
+        usuarioId: usuarioIdEfetivo,
+        posicaoPreferida: posicaoPreferida || null,
+      });
+      const criada = res.data?.data;
+      salvarSolicitacaoLocal({
+        id: criada?.id || `sol_${Date.now()}`,
+        partidaId: id,
+        usuarioId: usuarioIdEfetivo,
+        organizadorId: partidaDesejada?.organizadorId,
+        statusSolicitacao: criada?.statusSolicitacao || 'Pendente',
+        posicaoPreferida: posicaoPreferida || null,
+        atletaNome: usuarioLogado?.nome || 'Atleta Bora!',
+        atletaFoto: usuarioLogado?.fotoUrl || null,
+        atletaGenero: usuarioLogado?.genero || 'Misto',
+        atletaNota: usuarioLogado?.notaMedia || 5.0,
+        partidaEsporte: partidaDesejada?.esporte || 'Partida Esportiva',
+        partidaBairro: partidaDesejada?.bairro || 'Franca',
+        partidaDataHora: partidaDesejada?.dataHora || new Date().toISOString(),
+        partidaDescricao: partidaDesejada?.descricao || '',
+      });
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+      setToastMensagem(`Solicitação enviada com sucesso${sufixoPosicao}! Acompanhe o status na aba Gestão.`);
     } catch (e: any) {
-      const msgErro = e.response?.data?.error || 'Erro ao solicitar vaga.';
-      setToastMensagem(msgErro);
+      if (!e.response) {
+        salvarSolicitacaoLocal({
+          id: `sol_${Date.now()}`,
+          partidaId: id,
+          usuarioId: usuarioIdEfetivo,
+          organizadorId: partidaDesejada?.organizadorId,
+          statusSolicitacao: 'Pendente',
+          posicaoPreferida: posicaoPreferida || null,
+          atletaNome: usuarioLogado?.nome || 'Atleta Bora!',
+          atletaFoto: usuarioLogado?.fotoUrl || null,
+          atletaGenero: usuarioLogado?.genero || 'Misto',
+          atletaNota: usuarioLogado?.notaMedia || 5.0,
+          partidaEsporte: partidaDesejada?.esporte || 'Partida Esportiva',
+          partidaBairro: partidaDesejada?.bairro || 'Franca',
+          partidaDataHora: partidaDesejada?.dataHora || new Date().toISOString(),
+          partidaDescricao: partidaDesejada?.descricao || '',
+        });
+        queryClient.invalidateQueries({ queryKey: ['requests'] });
+        setToastMensagem(`Solicitação enviada com sucesso${sufixoPosicao}! Acompanhe o status na aba Gestão.`);
+      } else {
+        const msgErro = e.response?.data?.error || 'Erro ao solicitar vaga.';
+        setToastMensagem(msgErro);
+      }
     }
+  };
+
+  const handleCancelarParticipacao = async (solicitacaoId: string, _partidaId: string) => {
+    try {
+      await api.patch(`/requests/${solicitacaoId}/cancel`, {
+        usuarioId: usuarioLogado?.id,
+      });
+    } catch {
+      // fallback local
+    }
+    atualizarStatusSolicitacaoLocal(solicitacaoId, usuarioLogado?.id, 'Cancelada');
+    queryClient.invalidateQueries({ queryKey: ['requests'] });
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
+    setToastMensagem('✅ Sua solicitação/participação na partida foi cancelada.');
   };
 
   const handleMarcarAmistoso = (id: string) => {
@@ -517,6 +668,10 @@ export const App: React.FC = () => {
   };
 
   const handleCancelarPartida = (id: string) => {
+    excluirPartidaLocal(id);
+    queryClient.setQueryData<any[]>(['matches', raioKm, coordBusca.lat, coordBusca.lng], (prev = []) =>
+      prev.filter((p) => p.id !== id)
+    );
     queryClient.invalidateQueries({ queryKey: ['matches'] });
     setToastMensagem('🗑️ Partida excluída com sucesso!');
   };
@@ -598,19 +753,32 @@ export const App: React.FC = () => {
                   onChange={(_, val) => val && setModoVisualizacao(val)}
                   size="small"
                   sx={{
-                    bgcolor: 'background.paper',
+                    bgcolor: isDark ? '#1E293B' : '#FFFFFF',
                     borderRadius: 3,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                    p: 0.4,
+                    border: isDark ? '1.5px solid #334155' : '1.5px solid #94A3B8',
+                    boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.3)' : '0 3px 10px rgba(15,23,42,0.08)',
                     '& .MuiToggleButton-root': {
-                      px: 2,
+                      px: 2.2,
                       py: 0.7,
                       fontWeight: 800,
                       textTransform: 'none',
-                      fontSize: '0.82rem',
+                      fontSize: '0.84rem',
+                      border: 'none',
+                      borderRadius: '10px !important',
+                      color: isDark ? '#CBD5E1' : '#0F172A',
+                      bgcolor: 'transparent',
+                      '&:hover': {
+                        bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#EFF6FF',
+                      },
                     },
-                    '& .Mui-selected': {
-                      bgcolor: 'primary.main !important',
+                    '& .MuiToggleButton-root.Mui-selected': {
+                      bgcolor: '#0066FF !important',
                       color: '#FFFFFF !important',
+                      boxShadow: '0 2px 8px rgba(0, 102, 255, 0.35)',
+                      '&:hover': {
+                        bgcolor: '#0052CC !important',
+                      },
                     }
                   }}
                 >
@@ -654,16 +822,23 @@ export const App: React.FC = () => {
                     {...params}
                     fullWidth
                     size="small"
-                    placeholder="Meu endereço (rua, bairro ou CEP) para buscar por perto..."
+                    placeholder="Meu endereço em Franca/SP (ex: Av. Paulo VI, CEPEL, rua ou bairro)..."
                     helperText={
                       coordBusca.origem === 'gps_dispositivo'
-                        ? '📍 Usando sua localização atual (GPS)'
-                        : coordBusca.origem === 'fallback_centro'
-                          ? '📍 Endereço não localizado. Tente incluir o bairro ou use o GPS.'
-                          : coordBusca.origem
-                            ? `📍 Buscando a partir de: ${coordBusca.displayName || enderecoBusca || 'endereço informado'}`
-                            : 'Informe seu endereço ou use o GPS para ver partidas perto de você.'
+                        ? `📍 Localização ativa via GPS: ${coordBusca.displayName || 'Franca/SP'} — ordenando jogos mais próximos`
+                        : enderecoBusca.trim() && coordBusca.origem && coordBusca.origem !== 'fallback_centro'
+                          ? `📍 Referência em Franca/SP: ${coordBusca.displayName || `${enderecoBusca.trim()}, Franca/SP`} — ordenando por proximidade`
+                          : 'Digite um endereço ou bairro de Franca/SP (ou use o GPS) para ordenar os jogos mais próximos de você.'
                     }
+                    FormHelperTextProps={{
+                      sx: {
+                        fontWeight: 700,
+                        color: isDark ? '#93C5FD' : '#1E3A8A',
+                        mt: 0.6,
+                        mb: 1.2,
+                        mx: 0.5,
+                      }
+                    }}
                     InputProps={{
                       ...params.InputProps,
                       startAdornment: (
@@ -673,14 +848,27 @@ export const App: React.FC = () => {
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
+                          {enderecoBusca && (
+                            <Tooltip title="Limpar endereço">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setEnderecoBusca('');
+                                  setCoordBusca({ lat: -20.5388, lng: -47.4005, origem: 'fallback_centro' });
+                                }}
+                              >
+                                <X size={16} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Usar minha localização atual (GPS)">
                             <span>
-                              <IconButton size="small" onClick={usarMinhaLocalizacaoAtual} disabled={buscandoEndereco}>
+                              <IconButton size="small" onClick={usarMinhaLocalizacaoAtual} disabled={buscandoEndereco} sx={{ color: isDark ? '#CBD5E1' : '#1E293B' }}>
                                 <MyLocationIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>
-                          <IconButton size="small" onClick={buscarPorEndereco} disabled={buscandoEndereco || !enderecoBusca.trim()}>
+                          <IconButton size="small" onClick={buscarPorEndereco} disabled={buscandoEndereco || !enderecoBusca.trim()} sx={{ color: isDark ? '#60A5FA' : '#0066FF' }}>
                             <Search size={18} />
                           </IconButton>
                         </InputAdornment>
@@ -688,9 +876,8 @@ export const App: React.FC = () => {
                       sx: {
                         borderRadius: 3,
                         bgcolor: 'background.paper',
-                        fontWeight: 600,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                        mb: 2
+                        fontWeight: 700,
+                        boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 10px rgba(15,23,42,0.06)',
                       }
                     }}
                   />
@@ -821,44 +1008,62 @@ export const App: React.FC = () => {
                         size="medium"
                         onClick={() => setFiltroFormato('Todos')}
                         sx={{
-                          fontWeight: filtroFormato === 'Todos' ? 900 : 700,
-                          bgcolor: filtroFormato === 'Todos' ? 'primary.main' : (isDark ? '#1E293B' : '#F1F5F9'),
-                          color: filtroFormato === 'Todos' ? '#FFFFFF' : 'text.primary',
+                          fontWeight: filtroFormato === 'Todos' ? 900 : 800,
+                          bgcolor: filtroFormato === 'Todos' ? 'primary.main' : (isDark ? '#1E293B' : '#E2E8F0'),
+                          color: filtroFormato === 'Todos' ? '#FFFFFF' : (isDark ? '#F8FAFC' : '#0F172A'),
+                          border: filtroFormato === 'Todos' ? '1.5px solid #0052CC' : (isDark ? '1.5px solid #334155' : '1.5px solid #94A3B8'),
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
                           px: 0.8
                         }}
                       />
                       <Chip
-                        icon={<Shield size={15} color={filtroFormato === 'Amistoso_Times' ? '#FFFFFF' : '#0066FF'} />}
+                        icon={<Shield size={15} color={filtroFormato === 'Amistoso_Times' ? '#FFFFFF' : '#0052CC'} />}
                         label="🤝 Amistosos (Times)"
                         size="medium"
                         onClick={() => setFiltroFormato('Amistoso_Times')}
                         sx={{
-                          fontWeight: filtroFormato === 'Amistoso_Times' ? 900 : 700,
-                          bgcolor: filtroFormato === 'Amistoso_Times' ? 'primary.main' : (isDark ? '#1E3A5F' : '#EFF6FF'),
-                          color: filtroFormato === 'Amistoso_Times' ? '#FFFFFF' : (isDark ? '#93C5FD' : 'primary.main'),
-                          border: isDark ? '1.5px solid #2563EB' : '1.5px solid #BFDBFE',
+                          fontWeight: filtroFormato === 'Amistoso_Times' ? 900 : 800,
+                          bgcolor: filtroFormato === 'Amistoso_Times' ? 'primary.main' : (isDark ? '#1E3A5F' : '#DBEAFE'),
+                          color: filtroFormato === 'Amistoso_Times' ? '#FFFFFF' : (isDark ? '#93C5FD' : '#1E3A8A'),
+                          border: isDark ? '1.5px solid #2563EB' : '1.5px solid #60A5FA',
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
                           px: 0.8
                         }}
                       />
                       <Chip
-                        icon={<Users size={15} color={filtroFormato === 'Avulso' ? '#FFFFFF' : '#16A34A'} />}
+                        icon={<Users size={15} color={filtroFormato === 'Avulso' ? '#FFFFFF' : '#15803D'} />}
                         label="⚽ Partidas Abertas (Avulso)"
                         size="medium"
                         onClick={() => setFiltroFormato('Avulso')}
                         sx={{
-                          fontWeight: filtroFormato === 'Avulso' ? 900 : 700,
-                          bgcolor: filtroFormato === 'Avulso' ? '#16A34A' : (isDark ? '#064E3B' : '#F0FDF4'),
-                          color: filtroFormato === 'Avulso' ? '#FFFFFF' : (isDark ? '#86EFAC' : '#166534'),
-                          border: isDark ? '1.5px solid #059669' : '1.5px solid #BBF7D0',
+                          fontWeight: filtroFormato === 'Avulso' ? 900 : 800,
+                          bgcolor: filtroFormato === 'Avulso' ? '#16A34A' : (isDark ? '#064E3B' : '#DCFCE7'),
+                          color: filtroFormato === 'Avulso' ? '#FFFFFF' : (isDark ? '#86EFAC' : '#14532D'),
+                          border: isDark ? '1.5px solid #059669' : '1.5px solid #4ADE80',
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
                           px: 0.8
                         }}
                       />
+                      {String(usuarioLogado?.genero || '').toLowerCase() === 'feminino' && (
+                        <Chip
+                          label="🌸 Partida 100% Feminina"
+                          size="medium"
+                          onClick={() => setFiltroFormato(filtroFormato === 'Feminino' ? 'Todos' : 'Feminino')}
+                          sx={{
+                            fontWeight: filtroFormato === 'Feminino' ? 900 : 800,
+                            bgcolor: filtroFormato === 'Feminino' ? '#EC4899' : (isDark ? 'rgba(236, 72, 153, 0.18)' : '#FDF2F8'),
+                            color: filtroFormato === 'Feminino' ? '#FFFFFF' : (isDark ? '#F9A8D4' : '#DB2777'),
+                            border: '1.5px solid #EC4899',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            px: 0.8,
+                            boxShadow: filtroFormato === 'Feminino' ? '0 2px 10px rgba(236, 72, 153, 0.4)' : 'none',
+                          }}
+                        />
+                      )}
                     </Box>
                   </Box>
 
@@ -919,27 +1124,29 @@ export const App: React.FC = () => {
                   <Box display="flex" justifyContent="space-between" alignItems="center" pt={1} borderTop={isDark ? '1px solid #1E293B' : '1px solid #F1F5F9'}>
                     <Box display="flex" gap={0.8}>
                       <Chip
-                        icon={<Trees size={14} color={filtroTipoLocal === 'Publica' ? '#FFFFFF' : '#16A34A'} />}
+                        icon={<Trees size={14} color={filtroTipoLocal === 'Publica' ? '#FFFFFF' : '#15803D'} />}
                         label="Públicas (Gratuitas)"
                         size="small"
                         onClick={() => setFiltroTipoLocal(filtroTipoLocal === 'Publica' ? 'Todos' : 'Publica')}
                         sx={{
-                          fontWeight: filtroTipoLocal === 'Publica' ? 800 : 600,
-                          bgcolor: filtroTipoLocal === 'Publica' ? '#16A34A' : (isDark ? '#1E293B' : '#F8FAFC'),
-                          color: filtroTipoLocal === 'Publica' ? '#FFFFFF' : 'text.secondary',
+                          fontWeight: filtroTipoLocal === 'Publica' ? 900 : 700,
+                          bgcolor: filtroTipoLocal === 'Publica' ? '#16A34A' : (isDark ? '#1E293B' : '#DCFCE7'),
+                          color: filtroTipoLocal === 'Publica' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#14532D'),
+                          border: isDark ? '1px solid #334155' : '1.5px solid #4ADE80',
                           fontSize: '0.75rem',
                           cursor: 'pointer'
                         }}
                       />
                       <Chip
-                        icon={<Building2 size={14} color={filtroTipoLocal === 'Privada' ? '#FFFFFF' : '#0066FF'} />}
+                        icon={<Building2 size={14} color={filtroTipoLocal === 'Privada' ? '#FFFFFF' : '#0052CC'} />}
                         label="Privadas (Arenas)"
                         size="small"
                         onClick={() => setFiltroTipoLocal(filtroTipoLocal === 'Privada' ? 'Todos' : 'Privada')}
                         sx={{
-                          fontWeight: filtroTipoLocal === 'Privada' ? 800 : 600,
-                          bgcolor: filtroTipoLocal === 'Privada' ? '#0066FF' : (isDark ? '#1E293B' : '#F8FAFC'),
-                          color: filtroTipoLocal === 'Privada' ? '#FFFFFF' : 'text.secondary',
+                          fontWeight: filtroTipoLocal === 'Privada' ? 900 : 700,
+                          bgcolor: filtroTipoLocal === 'Privada' ? '#0066FF' : (isDark ? '#1E293B' : '#DBEAFE'),
+                          color: filtroTipoLocal === 'Privada' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#1E3A8A'),
+                          border: isDark ? '1px solid #334155' : '1.5px solid #60A5FA',
                           fontSize: '0.75rem',
                           cursor: 'pointer'
                         }}
@@ -975,6 +1182,8 @@ export const App: React.FC = () => {
                   </Typography>
                   <FullMapExplorer 
                     partidas={partidasFiltradas}
+                    centroLat={coordBusca.lat}
+                    centroLng={coordBusca.lng}
                     raioKm={raioKm}
                     onSolicitarVaga={handleSolicitarVaga}
                     onMarcarAmistoso={handleMarcarAmistoso}
@@ -1030,6 +1239,7 @@ export const App: React.FC = () => {
                         {...match}
                         usuarioLogado={usuarioLogado}
                         onSolicitarVaga={handleSolicitarVaga}
+                        onCancelarParticipacao={handleCancelarParticipacao}
                         onMarcarAmistoso={handleMarcarAmistoso}
                         onFinalizarPartida={handleFinalizarPartida}
                         onCancelarPartida={handleCancelarPartida}
@@ -1072,6 +1282,7 @@ export const App: React.FC = () => {
             <MyMatchesScreen
               usuarioLogado={usuarioLogado}
               onPartidaCancelada={(partidaId) => {
+                excluirPartidaLocal(partidaId);
                 queryClient.invalidateQueries({ queryKey: ['matches'] });
               }}
             />

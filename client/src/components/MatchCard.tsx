@@ -6,7 +6,6 @@ import {
   Box,
   Chip,
   Button,
-  Divider,
   Alert,
   IconButton,
   Tooltip,
@@ -16,6 +15,7 @@ import {
   DialogContentText,
   DialogActions,
   CircularProgress,
+  TextField,
   useTheme
 } from '@mui/material';
 import { 
@@ -49,6 +49,7 @@ export interface MatchCardProps {
   bairro: string;
   enderecoCompleto?: string;
   lat: number;
+  distanciaKm?: number;
   lng: number;
   vagasPreenchidas: number;
   maxVagas: number;
@@ -56,6 +57,7 @@ export interface MatchCardProps {
   organizadorId?: string;
   isOrganizador?: boolean;
   isConfirmado?: boolean;
+  minhaSolicitacao?: { id: string; status: string } | null;
   formatoJogo?: 'Avulso' | 'Amistoso_Times';
   tipoLocal?: 'Publica' | 'Privada';
   filtroGenero?: string;
@@ -69,8 +71,10 @@ export interface MatchCardProps {
     id: string;
     nome: string;
     fotoUrl?: string | null;
+    genero?: string;
   };
-  onSolicitarVaga?: (id: string) => void;
+  onSolicitarVaga?: (id: string, posicaoPreferida?: string) => void;
+  onCancelarParticipacao?: (solicitacaoId: string, partidaId: string) => void;
   onMarcarAmistoso?: (id: string) => void;
   onFinalizarPartida?: (id: string) => void;
   onCancelarPartida?: (id: string) => void;
@@ -85,6 +89,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   bairro,
   enderecoCompleto,
   lat,
+  distanciaKm,
   lng,
   vagasPreenchidas,
   maxVagas,
@@ -94,15 +99,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   filtroGenero = 'Misto',
   isOrganizador = false,
   isConfirmado = false,
+  minhaSolicitacao = null,
   formatoJogo = 'Avulso',
   tipoLocal = 'Publica',
   timeMandante,
   timeVisitante,
   taxaCampo = 0,
-  taxaJuiz = 0,
   valorPorEquipe = 0,
   usuarioLogado = { id: '11111111-1111-1111-1111-111111111101', nome: 'Atleta Bora!' },
   onSolicitarVaga,
+  onCancelarParticipacao,
   onMarcarAmistoso,
   onFinalizarPartida,
   onCancelarPartida,
@@ -114,7 +120,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const vagasRestantes = maxVagas - vagasPreenchidas;
   const isLotado = isAmistoso ? Boolean(timeVisitante) : vagasRestantes <= 0;
   const isFinalizada = statusPartida === 'Finalizada';
-  const isCancelada = statusPartida === 'Cancelada';
+
+  const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
+  const statusMinhaSolicitacao = minhaSolicitacao?.status;
+  const solicitacaoPendente = !souOrganizador && statusMinhaSolicitacao === 'Pendente';
+  const solicitacaoAprovada = isConfirmado || statusMinhaSolicitacao === 'Aprovada';
 
   const [clima, setClima] = useState<PrevisaoClima | null>(null);
   const [chatAberto, setChatAberto] = useState(false);
@@ -123,16 +133,46 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [encerrando, setEncerrando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [statusLocal, setStatusLocal] = useState(statusPartida);
+  const [dialogPosicaoAberto, setDialogPosicaoAberto] = useState(false);
+  const [posicaoPreferidaJogo, setPosicaoPreferidaJogo] = useState('');
 
-  const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
+  const espLower = String(esporte || '').toLowerCase();
+  const isModalidadeFutebol =
+    espLower.includes('futebol') ||
+    espLower.includes('society') ||
+    espLower.includes('futsal') ||
+    espLower.includes('terrão') ||
+    espLower.includes('campo');
+
+  const isUsuariaFeminina = String(usuarioLogado?.genero || '').toLowerCase() === 'feminino';
+  const opcoesPosicoesFutebol = isUsuariaFeminina
+    ? ['Goleira', 'Zagueira / Fixa', 'Lateral / Ala', 'Meio-Campo', 'Atacante', 'Pivô', 'Polivalente (Qualquer posição)']
+    : ['Goleiro(a)', 'Zagueiro(a) / Fixo', 'Lateral / Ala', 'Meio-Campo / Volante', 'Atacante', 'Pivô', 'Polivalente (Qualquer posição)'];
+
+  const handleCliqueSolicitarVaga = () => {
+    if (solicitacaoAprovada || solicitacaoPendente || !onSolicitarVaga) return;
+    if (isModalidadeFutebol) {
+      setPosicaoPreferidaJogo('');
+      setDialogPosicaoAberto(true);
+    } else {
+      onSolicitarVaga(id);
+    }
+  };
+
+  const handleConfirmarSolicitacaoFutebol = () => {
+    setDialogPosicaoAberto(false);
+    if (onSolicitarVaga) {
+      onSolicitarVaga(id, posicaoPreferidaJogo.trim() || undefined);
+    }
+  };
 
   useEffect(() => {
     setStatusLocal(statusPartida);
   }, [statusPartida]);
 
   useEffect(() => {
-    obterClimaFranca(lat, lng).then(setClima);
-  }, [lat, lng]);
+    obterClimaFranca(lat, lng, dataHora).then(setClima);
+  }, [lat, lng, dataHora]);
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   const openStreetMapEmbed = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005}%2C${lat - 0.005}%2C${lng + 0.005}%2C${lat + 0.005}&layer=mapnik&marker=${lat}%2C${lng}`;
@@ -153,7 +193,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     dataFormatada = 'Data a definir';
   }
 
-  // Gerador de Convite para WhatsApp
+  // Gerador de Convite / Compartilhamento para WhatsApp
   const handleCompartilharWhatsApp = () => {
     const baseUrl = window.location.origin || 'http://localhost:5173';
     const textoMensagem = isAmistoso
@@ -209,7 +249,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       try {
         await api.delete(`/matches/${id}`, { data: { solicitanteId: usuarioLogado.id } });
       } catch {
-        await api.patch(`/matches/${id}/cancel`);
+        await api.patch(`/matches/${id}/cancel`, { solicitanteId: usuarioLogado.id });
       }
       setStatusLocal('Cancelada');
       setDialogCancelarAberto(false);
@@ -217,7 +257,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         onCancelarPartida(id);
       }
     } catch (err: any) {
-      console.warn('Erro ao excluir partida:', err);
+      console.warn('Erro ao cancelar/excluir partida:', err);
       setStatusLocal('Cancelada');
       setDialogCancelarAberto(false);
       if (onCancelarPartida) {
@@ -239,7 +279,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             ? (isDark ? '1px solid #475569' : '1.5px solid #64748B')
             : isAmistoso
             ? (isDark ? '1.5px solid #2563EB' : '1.5px solid #0066FF')
-            : (isConfirmado ? '1.5px solid #10B981' : (isDark ? '1px solid #334155' : '1px solid rgba(226, 232, 240, 0.9)')),
+            : (solicitacaoAprovada ? '1.5px solid #10B981' : solicitacaoPendente ? '1.5px solid #0066FF' : (isDark ? '1px solid #334155' : '1.5px solid #CBD5E1')),
           borderRadius: 1.5,
           boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 3px 12px rgba(0,0,0,0.04)',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -277,7 +317,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 label={tipoLocal === 'Publica' ? 'Campo Público' : 'Arena Privada'}
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, height: 21, fontSize: '0.68rem', px: 0.5 }}
               />
-              <Tooltip title="Convidar no WhatsApp">
+              <Tooltip title="Compartilhar Partida no WhatsApp">
                 <IconButton 
                   size="small" 
                   onClick={handleCompartilharWhatsApp} 
@@ -319,7 +359,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   px: 0.5
                 }}
               />
-              <Tooltip title="Convidar no WhatsApp">
+              <Tooltip title="Compartilhar Partida no WhatsApp">
                 <IconButton 
                   size="small" 
                   onClick={handleCompartilharWhatsApp} 
@@ -412,7 +452,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </Typography>
             </Box>
 
-            {/* CHIP COM A DURAÇÃO ESTIMADA (Sem duplicar ícones) */}
             <Chip
               icon={<Clock size={12} color={isDark ? '#60A5FA' : '#0066FF'} />}
               label={`${duracaoMinutos} min`}
@@ -431,7 +470,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <Box display="flex" alignItems="center" gap={0.4}>
               <MapPin size={13} color={isDark ? '#60A5FA' : '#0066FF'} />
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.72rem' }}>
-                {bairro}, Franca/SP
+                {bairro}, Franca/SP{typeof distanciaKm === 'number' ? ` • a ${distanciaKm.toFixed(1)} km` : ''}
               </Typography>
             </Box>
 
@@ -439,7 +478,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             {clima && (
               <Chip
                 icon={<span style={{ fontSize: '11px', marginLeft: '3px' }}>{clima.icone}</span>}
-                label={`${clima.temperatura}°C • ${clima.condicao}`}
+                label={`${clima.temperatura}°C • ${clima.condicao}${clima.probabilidadeChuva != null ? ` (💧${clima.probabilidadeChuva}%)` : ''}`}
+                title={`${clima.horarioReferencia || 'Previsão no local'} • GPS (${clima.coordenadasRef || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}) • Sensação: ${clima.sensacaoTermica ?? clima.temperatura}°C • Chuva: ${clima.probabilidadeChuva ?? 0}% • Vento: ${clima.velocidadeVentoKmh ?? 8} km/h`}
                 size="small"
                 sx={{
                   bgcolor: clima.alertaChuva ? (isDark ? '#7F1D1D' : '#FEE2E2') : (isDark ? '#78350F' : '#FEF3C7'),
@@ -461,7 +501,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           )}
 
           {/* MAPA INTERATIVO / MINIMAPA LIBERADO COM LGPD */}
-          {isConfirmado ? (
+          {solicitacaoAprovada ? (
             <Box sx={{ mb: 1.5 }}>
               <Box display="flex" alignItems="center" gap={0.6} mb={0.6}>
                 <ShieldCheck size={14} color="#10B981" />
@@ -488,9 +528,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </Button>
             </Box>
           ) : (
-            <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 1.5, bgcolor: isDark ? 'rgba(30, 58, 95, 0.4)' : '#EFF6FF', border: isDark ? '1px solid #1E3A5F' : 'none', py: 0.4, px: 1.2, '& .MuiAlert-message': { p: 0 } }}>
+            <Alert severity="info" icon={<ShieldAlert size={14} />} sx={{ mb: 1.2, borderRadius: 1.5, bgcolor: isDark ? 'rgba(30, 58, 95, 0.4)' : '#DBEAFE', border: isDark ? '1px solid #1E3A5F' : '1px solid #93C5FD', py: 0.5, px: 1.2, '& .MuiAlert-message': { p: 0 } }}>
               <Typography variant="caption" fontWeight={600} color={isDark ? '#93C5FD' : 'primary.dark'} sx={{ fontSize: '0.70rem', lineHeight: 1.25 }}>
-                <strong>Proteção LGPD (RN02):</strong> O endereço e mapa exatos são liberados assim que {isAmistoso ? 'o confronto for aceito' : 'sua vaga for confirmada'}.
+                <strong>Proteção de Dados (LGPD):</strong> O endereço e o mapa exatos são liberados assim que {isAmistoso ? 'o confronto for aceito' : 'sua vaga for confirmada'}.
               </Typography>
             </Alert>
           )}
@@ -506,6 +546,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               >
                 PARTIDA FINALIZADA
               </Button>
+            ) : souOrganizador ? (
+              <Button
+                fullWidth
+                variant="contained"
+                color="success"
+                onClick={() => setChatAberto(true)}
+                startIcon={<MessageSquare size={15} />}
+                sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
+              >
+                VOCÊ É O ORGANIZADOR — ABRIR CHAT DA PARTIDA
+              </Button>
             ) : isAmistoso ? (
               <Button
                 fullWidth
@@ -517,31 +568,68 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               >
                 {timeVisitante ? 'AMISTOSO CONFIRMADO' : 'DESAFIAR COM MEU TIME'}
               </Button>
+            ) : solicitacaoPendente ? (
+              <Box display="flex" gap={1}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="info"
+                  disabled
+                  sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.75rem', bgcolor: '#DBEAFE !important', color: '#1E3A8A !important' }}
+                >
+                  ⏳ SOLICITAÇÃO ENVIADA (AGUARDANDO)
+                </Button>
+                {minhaSolicitacao?.id && onCancelarParticipacao && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<Ban size={13} />}
+                    onClick={() => onCancelarParticipacao(minhaSolicitacao.id, id)}
+                    sx={{ fontWeight: 800, borderRadius: 2, fontSize: '0.72rem', whiteSpace: 'nowrap', px: 1.5 }}
+                  >
+                    Cancelar
+                  </Button>
+                )}
+              </Box>
             ) : (
-              <Button
-                fullWidth
-                variant="contained"
-                color={isConfirmado ? 'success' : 'primary'}
-                disabled={isLotado && !isConfirmado}
-                onClick={() => !isConfirmado && onSolicitarVaga && onSolicitarVaga(id)}
-                sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
-              >
-                {isConfirmado ? 'VAGA CONFIRMADA' : (isLotado ? 'PARTIDA LOTADA' : 'SOLICITAR VAGA')}
-              </Button>
+              <Box display="flex" gap={1}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color={solicitacaoAprovada ? 'success' : 'primary'}
+                  disabled={isLotado && !solicitacaoAprovada}
+                  onClick={handleCliqueSolicitarVaga}
+                  sx={{ py: 0.8, fontWeight: 800, borderRadius: 2, fontSize: '0.78rem' }}
+                >
+                  {solicitacaoAprovada ? '✅ VAGA CONFIRMADA' : (isLotado ? 'PARTIDA LOTADA' : 'SOLICITAR VAGA')}
+                </Button>
+                {solicitacaoAprovada && minhaSolicitacao?.id && onCancelarParticipacao && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<Ban size={13} />}
+                    onClick={() => onCancelarParticipacao(minhaSolicitacao.id, id)}
+                    sx={{ fontWeight: 800, borderRadius: 2, fontSize: '0.72rem', whiteSpace: 'nowrap', px: 1.5 }}
+                  >
+                    Sair da Vaga
+                  </Button>
+                )}
+              </Box>
             )}
 
-            {/* BARRA DE AÇÕES AUXILIARES: CHAT / MURAL & GESTÃO (ORGANIZADOR) */}
+            {/* BARRA DE AÇÕES AUXILIARES: CHAT DA PARTIDA, COMPARTILHAR & GESTÃO (ORGANIZADOR) */}
             <Box display="flex" gap={0.8} flexWrap="wrap">
               {/* Botão de Chat / Mural da Partida */}
               <Button
-                fullWidth={!souOrganizador}
                 variant="outlined"
                 color="primary"
                 size="small"
                 startIcon={<MessageSquare size={14} color={isDark ? '#60A5FA' : '#0066FF'} />}
                 onClick={() => setChatAberto(true)}
                 sx={{
-                  flex: souOrganizador ? 1 : undefined,
+                  flex: 1,
                   fontWeight: 800,
                   borderRadius: 2,
                   fontSize: '0.72rem',
@@ -552,10 +640,32 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   '&:hover': { bgcolor: isDark ? '#334155' : '#DBEAFE', borderColor: isDark ? '#60A5FA' : '#93C5FD' },
                 }}
               >
-                Mural
+                Chat da Partida
               </Button>
 
-              {/* Botão de Encerrar Partida (Exclusivo do Organizador) */}
+              {/* Botão Compartilhar visível em todas as partidas encontradas */}
+              <Button
+                variant="outlined"
+                color="success"
+                size="small"
+                startIcon={<Share2 size={14} />}
+                onClick={handleCompartilharWhatsApp}
+                sx={{
+                  flex: 1,
+                  fontWeight: 800,
+                  borderRadius: 2,
+                  fontSize: '0.72rem',
+                  py: 0.6,
+                  bgcolor: isDark ? 'rgba(22,163,74,0.12)' : '#F0FDF4',
+                  borderColor: isDark ? '#16A34A' : '#86EFAC',
+                  color: isDark ? '#4ADE80' : '#15803D',
+                  '&:hover': { bgcolor: isDark ? 'rgba(22,163,74,0.22)' : '#DCFCE7' },
+                }}
+              >
+                Compartilhar
+              </Button>
+
+              {/* Botões de Encerrar e Cancelar/Excluir Partida (Organizador) */}
               {souOrganizador && statusLocal !== 'Finalizada' && statusLocal !== 'Cancelada' && (
                 <>
                   <Button
@@ -597,7 +707,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       '&:hover': { bgcolor: '#FEE2E2', borderColor: '#EF4444' },
                     }}
                   >
-                    Excluir
+                    Cancelar Partida
                   </Button>
                 </>
               )}
@@ -658,21 +768,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </DialogActions>
       </Dialog>
 
-      {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE CANCELAMENTO / EXCLUSÃO */}
       <Dialog
         open={dialogCancelarAberto}
         onClose={() => !cancelando && setDialogCancelarAberto(false)}
         PaperProps={{ sx: { borderRadius: 3.5, p: 1 } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 900 }}>
-          <AlertTriangle size={22} color="#DC2626" /> Excluir Partida Criada?
+          <AlertTriangle size={22} color="#DC2626" /> Cancelar / Excluir Partida?
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: 'text.primary', fontWeight: 600 }}>
-            Tem certeza que deseja excluir a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
+            Tem certeza que deseja cancelar a partida de <strong>{esporte}</strong> no bairro <strong>{bairro}</strong>?
           </DialogContentText>
           <DialogContentText sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 1 }}>
-            ⚠️ Ao excluir a partida:
+            ⚠️ Ao cancelar a partida:
             <br />• Todas as solicitações de vagas e confrontos serão cancelados.
             <br />• A partida sairá da listagem e do mapa de Franca/SP.
           </DialogContentText>
@@ -693,7 +803,77 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             startIcon={cancelando ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
             sx={{ fontWeight: 900, borderRadius: 2, px: 2.5 }}
           >
-            {cancelando ? 'Excluindo...' : 'Sim, Excluir Partida'}
+            {cancelando ? 'Cancelando...' : 'Sim, Cancelar Partida'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIÁLOGO OPCIONAL DE PREFERÊNCIA DE POSIÇÃO (EXCLUSIVO PARA FUTEBOL / SOCIETY / FUTSAL) */}
+      <Dialog
+        open={dialogPosicaoAberto}
+        onClose={() => setDialogPosicaoAberto(false)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 3.5, p: 0.5 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 900, color: 'primary.main', pb: 0.5 }}>
+          ⚽ Solicitar Vaga — {esporte}
+        </DialogTitle>
+        <DialogContent sx={{ pt: '8px !important' }}>
+          <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+            Você tem preferência de jogar em alguma posição específica? Qual?
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+            Campo não obrigatório (opcional). Escolha uma sugestão abaixo, digite sua posição ou envie em branco se não tiver preferência:
+          </Typography>
+
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 2 }}>
+            {opcoesPosicoesFutebol.map((pos) => {
+              const selecionada = posicaoPreferidaJogo.toLowerCase() === pos.toLowerCase();
+              return (
+                <Chip
+                  key={pos}
+                  label={pos}
+                  size="small"
+                  onClick={() => setPosicaoPreferidaJogo(selecionada ? '' : pos)}
+                  sx={{
+                    fontWeight: selecionada ? 900 : 600,
+                    bgcolor: selecionada ? 'primary.main' : (isDark ? '#1E293B' : '#F1F5F9'),
+                    color: selecionada ? '#FFFFFF' : 'text.primary',
+                    border: selecionada ? '1.5px solid #0066FF' : '1px solid #CBD5E1',
+                    cursor: 'pointer',
+                  }}
+                />
+              );
+            })}
+          </Box>
+
+          <TextField
+            label="Você tem preferência de jogar em alguma posição específica? Qual? (Opcional)"
+            placeholder={isUsuariaFeminina ? 'Ex: Goleira, Atacante, Pivô, Ala... (Não obrigatório)' : 'Ex: Goleiro, Atacante, Pivô, Fixo... (Não obrigatório)'}
+            fullWidth
+            size="small"
+            value={posicaoPreferidaJogo}
+            onChange={(e) => setPosicaoPreferidaJogo(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            helperText="Deixe em branco caso jogue em qualquer posição ou não queira informar."
+          />
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 2.5, pt: 1, justifyContent: 'space-between' }}>
+          <Button
+            onClick={() => setDialogPosicaoAberto(false)}
+            color="inherit"
+            sx={{ fontWeight: 700, textTransform: 'none' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleConfirmarSolicitacaoFutebol}
+            sx={{ fontWeight: 900, borderRadius: 2, px: 2.5, textTransform: 'none' }}
+          >
+            Enviar Solicitação
           </Button>
         </DialogActions>
       </Dialog>

@@ -5,5 +5,6 @@ export function createRequestRoutes(solicitacaoController: SolicitacaoController
   return async (app: FastifyInstance) => {
     app.get('/api/v1/requests', solicitacaoController.listAll);
     app.patch('/api/v1/requests/:id', solicitacaoController.manage);
+    app.patch('/api/v1/requests/:id/cancel', solicitacaoController.cancelParticipation);
   };
 }

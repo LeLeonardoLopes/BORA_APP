@@ -19,12 +19,12 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
         contrastText: '#0F172A',
       },
       background: {
-        default: isDark ? '#0A0E17' : '#F8FAFC',
+        default: isDark ? '#0A0E17' : '#EEF2F6',
         paper: isDark ? '#111827' : '#FFFFFF',
       },
       text: {
         primary: isDark ? '#F8FAFC' : '#0F172A',
-        secondary: isDark ? '#94A3B8' : '#64748B',
+        secondary: isDark ? '#94A3B8' : '#334155',
       },
       success: {
         main: '#10B981',
@@ -68,7 +68,7 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
             fontFamily: '"Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important',
             fontSize: '14px',
             color: isDark ? '#F8FAFC' : '#0F172A',
-            backgroundColor: isDark ? '#0A0E17' : '#F8FAFC',
+            backgroundColor: isDark ? '#0A0E17' : '#EEF2F6',
             transition: 'background-color 0.25s ease, color 0.25s ease',
             WebkitFontSmoothing: 'antialiased',
             MozOsxFontSmoothing: 'grayscale',
@@ -79,14 +79,15 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
         styleOverrides: {
           root: {
             borderRadius: 10,
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
             boxShadow: isDark
-              ? '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06)'
-              : '0 4px 20px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04)',
+              ? '0 4px 20px rgba(0, 0, 0, 0.4)'
+              : '0 4px 16px rgba(15, 23, 42, 0.08)',
             transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
               boxShadow: isDark
                 ? '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.2)'
-                : '0 8px 30px rgba(0, 102, 255, 0.12), 0 0 0 1px rgba(0, 102, 255, 0.15)',
+                : '0 8px 26px rgba(0, 102, 255, 0.14)',
             },
           },
         },
@@ -152,8 +153,8 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
           root: {
             fontFamily: '"Poppins", sans-serif',
             fontSize: '0.82rem',
-            fontWeight: 600,
-            color: isDark ? '#94A3B8' : '#64748B',
+            fontWeight: 700,
+            color: isDark ? '#94A3B8' : '#334155',
             maxWidth: 'calc(100% - 24px)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -176,6 +177,7 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
             '& input': {
               padding: '10px 14px',
               fontSize: '0.84rem',
+              fontWeight: 600,
               fontFamily: '"Poppins", sans-serif',
               color: isDark ? '#F8FAFC' : '#0F172A',
             },
@@ -193,14 +195,16 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
             },
             '& input::placeholder': {
               fontSize: '0.80rem',
-              color: isDark ? '#64748B' : '#94A3B8',
+              color: isDark ? '#64748B' : '#475569',
+              fontWeight: 500,
               opacity: 1,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             },
             '& fieldset': {
-              borderColor: isDark ? 'rgba(71, 85, 105, 0.6)' : 'rgba(203, 213, 225, 0.8)',
+              borderColor: isDark ? 'rgba(71, 85, 105, 0.7)' : '#94A3B8',
+              borderWidth: '1.5px',
             },
             '&:hover fieldset': {
               borderColor: isDark ? '#60A5FA' : '#0066FF',
@@ -208,6 +212,28 @@ export const getBoraTheme = (mode: 'light' | 'dark' = 'light') => {
             '&.Mui-focused fieldset': {
               borderColor: isDark ? '#60A5FA' : '#0066FF',
               borderWidth: 2,
+            },
+          },
+        },
+      },
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#CBD5E1' : '#1E293B',
+            fontWeight: 800,
+            borderColor: isDark ? '#334155' : '#94A3B8',
+            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+            '&:hover': {
+              backgroundColor: isDark ? '#334155' : '#EFF6FF',
+            },
+            '&.Mui-selected': {
+              backgroundColor: '#0066FF !important',
+              color: '#FFFFFF !important',
+              borderColor: '#0052CC !important',
+              boxShadow: '0 2px 10px rgba(0, 102, 255, 0.35)',
+              '&:hover': {
+                backgroundColor: '#0052CC !important',
+              },
             },
           },
         },

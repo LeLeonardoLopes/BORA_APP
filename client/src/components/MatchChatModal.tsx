@@ -68,7 +68,29 @@ export const MatchChatModal: React.FC<MatchChatModalProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isFinalizadaOuCancelada = statusPartida === 'Finalizada' || statusPartida === 'Cancelada';
 
-  // 1. TanStack Query: Buscar histórico de mensagens
+  const chaveStorageChat = `@bora:chat_${partidaId}`;
+
+  const lerMensagensLocais = (): ChatMessage[] => {
+    try {
+      const raw = localStorage.getItem(chaveStorageChat);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const salvarMensagemLocal = (msg: ChatMessage) => {
+    try {
+      const atuais = lerMensagensLocais();
+      if (!atuais.some((m) => m.id === msg.id)) {
+        localStorage.setItem(chaveStorageChat, JSON.stringify([...atuais, msg]));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // 1. TanStack Query: Buscar histórico de mensagens (com espelho local para funcionar online e offline)
   const {
     data: mensagens = [],
     isLoading,
@@ -78,12 +100,24 @@ export const MatchChatModal: React.FC<MatchChatModalProps> = ({
     queryKey: ['match-chat', partidaId],
     queryFn: async () => {
       if (!partidaId) return [];
-      const response = await api.get(`/matches/${partidaId}/messages`);
-      return response.data?.data || [];
+      const locais = lerMensagensLocais();
+      try {
+        const response = await api.get(`/matches/${partidaId}/messages`);
+        const doServidor: ChatMessage[] = response.data?.data || [];
+        const combinadas = [...doServidor];
+        for (const l of locais) {
+          if (!combinadas.some((m) => m.id === l.id)) {
+            combinadas.push(l);
+          }
+        }
+        return combinadas;
+      } catch {
+        return locais;
+      }
     },
     enabled: open && Boolean(partidaId),
-    refetchInterval: false,
-    staleTime: 1000 * 10,
+    refetchInterval: open ? 4000 : false,
+    staleTime: 1000 * 3,
   });
 
   // 2. Conexão WebSocket em Tempo Real
@@ -153,16 +187,32 @@ export const MatchChatModal: React.FC<MatchChatModalProps> = ({
     }
   }, [mensagens, open]);
 
-  // 4. TanStack Mutation para enviar mensagem
+  // 4. TanStack Mutation para enviar mensagem (com fallback local)
   const mutationEnviar = useMutation({
     mutationFn: async (conteudo: string) => {
-      const response = await api.post(`/matches/${partidaId}/messages`, {
-        usuarioId: usuarioLogado.id,
-        usuarioNome: usuarioLogado.nome,
-        usuarioFoto: usuarioLogado.fotoUrl,
-        texto: conteudo,
-      });
-      return response.data?.data;
+      try {
+        const response = await api.post(`/matches/${partidaId}/messages`, {
+          usuarioId: usuarioLogado.id,
+          usuarioNome: usuarioLogado.nome,
+          usuarioFoto: usuarioLogado.fotoUrl,
+          texto: conteudo,
+        });
+        const msg = response.data?.data;
+        if (msg) salvarMensagemLocal(msg);
+        return msg;
+      } catch {
+        const msgLocal: ChatMessage = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          partidaId,
+          usuarioId: usuarioLogado.id,
+          usuarioNome: usuarioLogado.nome,
+          usuarioFoto: usuarioLogado.fotoUrl || null,
+          texto: conteudo,
+          criadoEm: new Date().toISOString(),
+        };
+        salvarMensagemLocal(msgLocal);
+        return msgLocal;
+      }
     },
     onSuccess: (novaMsg) => {
       if (novaMsg) {

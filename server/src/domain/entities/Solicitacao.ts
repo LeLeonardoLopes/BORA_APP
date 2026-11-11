@@ -38,4 +38,25 @@ export class Solicitacao {
     this.props.statusSolicitacao = StatusSolicitacaoEnum.REJEITADA;
     this.props.dataDecisao = new Date();
   }
+
+  /** O atleta desiste da solicitação (pendente) ou da vaga já aprovada. */
+  public cancelar(): void {
+    if (
+      this.props.statusSolicitacao !== StatusSolicitacaoEnum.PENDENTE &&
+      this.props.statusSolicitacao !== StatusSolicitacaoEnum.APROVADA
+    ) {
+      throw new Error('Apenas solicitações pendentes ou aprovadas podem ser canceladas.');
+    }
+    this.props.statusSolicitacao = StatusSolicitacaoEnum.CANCELADA;
+    this.props.dataDecisao = new Date();
+  }
+
+  /** Permite ao atleta pedir a vaga novamente depois de ter cancelado. */
+  public reabrir(): void {
+    if (this.props.statusSolicitacao !== StatusSolicitacaoEnum.CANCELADA) {
+      throw new Error('Somente solicitações canceladas podem ser reabertas.');
+    }
+    this.props.statusSolicitacao = StatusSolicitacaoEnum.PENDENTE;
+    this.props.dataDecisao = null;
+  }
 }

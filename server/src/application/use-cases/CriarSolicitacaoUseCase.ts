@@ -46,6 +46,19 @@ export class CriarSolicitacaoUseCase {
       input.usuarioId
     );
     if (solicitacaoExistente) {
+      // Atleta que cancelou antes pode pedir a vaga novamente (reabre a mesma solicitação)
+      if (solicitacaoExistente.statusSolicitacao === StatusSolicitacaoEnum.CANCELADA) {
+        solicitacaoExistente.reabrir();
+        await this.solicitacaoRepo.atualizar(solicitacaoExistente);
+        if (this.wsNotificationService) {
+          this.wsNotificationService.notificarUsuario(partida.organizadorId, 'request_received', {
+            solicitacaoId: solicitacaoExistente.id,
+            partidaId: partida.id,
+            usuarioId: input.usuarioId,
+          });
+        }
+        return solicitacaoExistente;
+      }
       throw new Error('Você já possui uma solicitação para esta partida.');
     }
 

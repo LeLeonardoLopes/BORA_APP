@@ -31,6 +31,7 @@ import { SoftDeletePartidaUseCase } from '../application/use-cases/SoftDeletePar
 import { CriarSolicitacaoUseCase } from '../application/use-cases/CriarSolicitacaoUseCase';
 import { ListarSolicitacoesUseCase } from '../application/use-cases/ListarSolicitacoesUseCase';
 import { GerenciarSolicitacaoUseCase } from '../application/use-cases/GerenciarSolicitacaoUseCase';
+import { CancelarParticipacaoUseCase } from '../application/use-cases/CancelarParticipacaoUseCase';
 import { ListarAvaliacoesUseCase } from '../application/use-cases/ListarAvaliacoesUseCase';
 import { AvaliarAtletaUseCase } from '../application/use-cases/AvaliarAtletaUseCase';
 import { EnviarMensagemChatUseCase } from '../application/use-cases/EnviarMensagemChatUseCase';
@@ -120,6 +121,7 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   const criarSolicitacaoUseCase = new CriarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, usuarioRepo, wsGateway);
   const listarSolicitacoesUseCase = new ListarSolicitacoesUseCase(solicitacaoRepo);
   const gerenciarSolicitacaoUseCase = new GerenciarSolicitacaoUseCase(solicitacaoRepo, partidaRepo, wsGateway);
+  const cancelarParticipacaoUseCase = new CancelarParticipacaoUseCase(solicitacaoRepo, partidaRepo, wsGateway);
 
   const listarAvaliacoesUseCase = new ListarAvaliacoesUseCase(avaliacaoRepo);
   const avaliarAtletaUseCase = new AvaliarAtletaUseCase(avaliacaoRepo, usuarioRepo);
@@ -148,7 +150,8 @@ export function buildApp(): { app: FastifyInstance; scheduler: MatchSchedulerWor
   const solicitacaoController = new SolicitacaoController(
     criarSolicitacaoUseCase,
     listarSolicitacoesUseCase,
-    gerenciarSolicitacaoUseCase
+    gerenciarSolicitacaoUseCase,
+    cancelarParticipacaoUseCase
   );
   const avaliacaoController = new AvaliacaoController(listarAvaliacoesUseCase, avaliarAtletaUseCase);
   const chatController = new ChatController(enviarMensagemChatUseCase, listarMensagensChatUseCase);

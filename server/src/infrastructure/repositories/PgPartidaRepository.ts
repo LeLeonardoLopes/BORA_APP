@@ -7,73 +7,23 @@ export class PgPartidaRepository implements IPartidaRepository {
   private memoriaFallback = new Map<string, Partida>();
 
   constructor() {
-    this.semearDadosIniciais();
+    this.removerPartidasDemonstracaoAntigas().catch(() => {});
   }
 
-  private semearDadosIniciais(): void {
-    const agora = new Date();
-    const amanha = new Date(agora.getTime() + 24 * 3600 * 1000);
-    amanha.setHours(19, 0, 0, 0);
-
-    const partidasIniciais = [
-      new Partida({
-        id: '22222222-2222-2222-2222-222222222201',
-        organizadorId: '11111111-1111-1111-1111-111111111101',
-        esporte: 'Futebol Society',
-        descricao: 'Society Noturno dos Amigos na Arena Franca. Faltam 2 meias e 1 goleiro!',
-        dataHora: amanha,
-        duracaoMinutos: 90,
-        maxVagas: 14,
-        vagasPreenchidas: 11,
-        filtroGenero: 'Misto',
-        filtroNivel: 'Intermediario',
-        enderecoCompleto: 'Av. Dr. Ismael Alonso y Alonso, 2500 - São José, Franca - SP',
-        bairro: 'São José',
-        cidade: 'Franca',
-        lat: -20.5389,
-        lng: -47.4012,
-        statusPartida: StatusPartidaEnum.PUBLICADA,
-      }),
-      new Partida({
-        id: '22222222-2222-2222-2222-222222222202',
-        organizadorId: '11111111-1111-1111-1111-111111111102',
-        esporte: 'Beach Tennis',
-        descricao: 'Treino e jogo livre de Beach Tennis na Sunset Arena. Raquetes disponíveis.',
-        dataHora: new Date(agora.getTime() + 48 * 3600 * 1000),
-        duracaoMinutos: 60,
-        maxVagas: 8,
-        vagasPreenchidas: 5,
-        filtroGenero: 'Feminino',
-        filtroNivel: 'Iniciante',
-        enderecoCompleto: 'Rua General Carneiro, 1420 - Centro, Franca - SP',
-        bairro: 'Centro',
-        cidade: 'Franca',
-        lat: -20.5365,
-        lng: -47.4045,
-        statusPartida: StatusPartidaEnum.PUBLICADA,
-      }),
-      new Partida({
-        id: '22222222-2222-2222-2222-222222222203',
-        organizadorId: '11111111-1111-1111-1111-111111111103',
-        esporte: 'Basquete 3x3',
-        descricao: 'Racha de Basquete 3x3 no Poliesportivo de Franca. Nível competitivo.',
-        dataHora: new Date(agora.getTime() + 72 * 3600 * 1000),
-        duracaoMinutos: 45,
-        maxVagas: 6,
-        vagasPreenchidas: 4,
-        filtroGenero: 'Masculino',
-        filtroNivel: 'Avancado',
-        enderecoCompleto: 'Av. Santos Dumont, 1200 - Bairro Estação, Franca - SP',
-        bairro: 'Bairro Estação',
-        cidade: 'Franca',
-        lat: -20.5280,
-        lng: -47.4120,
-        statusPartida: StatusPartidaEnum.PUBLICADA,
-      }),
-    ];
-
-    for (const p of partidasIniciais) {
-      this.memoriaFallback.set(p.id, p);
+  /**
+   * As partidas de demonstração (ids 22222222-2222-2222-2222-2222222222xx) foram removidas do sistema.
+   * Caso ainda existam no banco de execuções anteriores, são arquivadas para não aparecerem mais.
+   */
+  private async removerPartidasDemonstracaoAntigas(): Promise<void> {
+    try {
+      await db.query(`
+        UPDATE partida
+        SET deletado_em = NOW(), status_partida = 'Cancelada', atualizado_em = NOW()
+        WHERE deletado_em IS NULL
+          AND id::text LIKE '22222222-2222-2222-2222-2222222222%';
+      `);
+    } catch {
+      // Silencioso caso PostgreSQL esteja offline
     }
   }
 
@@ -128,6 +78,59 @@ export class PgPartidaRepository implements IPartidaRepository {
     return this.memoriaFallback.get(id) || null;
   }
 
+  /** Partidas mantidas em memória (criadas quando o banco falhou) que atendem aos filtros. */
+  private filtrarMemoria(
+    lat: number,
+    lng: number,
+    raioMetros: number,
+    esporte?: string,
+    endereco?: string
+  ): Partida[] {
+    const todas = Array.from(this.memoriaFallback.values());
+    const raioKm = raioMetros / 1000;
+    const limiteTolerancia = Date.now() - 15 * 60 * 1000;
+
+    return todas.filter((p) => {
+      if (p.statusPartida !== StatusPartidaEnum.PUBLICADA && p.statusPartida !== StatusPartidaEnum.LOTADA) {
+        return false;
+      }
+      if (p.dataHora.getTime() < limiteTolerancia) {
+        return false;
+      }
+      if (esporte && !p.esporte.toLowerCase().includes(esporte.toLowerCase())) {
+        return false;
+      }
+      if (endereco && !p.bairro.toLowerCase().includes(endereco.toLowerCase()) && !p.enderecoCompleto.toLowerCase().includes(endereco.toLowerCase())) {
+        return false;
+      }
+      const dLat = ((p.lat - lat) * Math.PI) / 180;
+      const dLng = ((p.lng - lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat * Math.PI) / 180) *
+          Math.cos((p.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const dist = 6371 * c;
+      return dist <= raioKm;
+    });
+  }
+
+  /** Junta o resultado do banco com partidas só em memória (sem duplicar ids). */
+  private mesclarComMemoria(
+    doBanco: Partida[],
+    lat: number,
+    lng: number,
+    raioMetros: number,
+    esporte?: string,
+    endereco?: string
+  ): Partida[] {
+    const ids = new Set(doBanco.map((p) => p.id));
+    const extras = this.filtrarMemoria(lat, lng, raioMetros, esporte, endereco).filter((p) => !ids.has(p.id));
+    return [...doBanco, ...extras];
+  }
+
   public async buscarPorRaio(
     lat: number,
     lng: number,
@@ -136,7 +139,6 @@ export class PgPartidaRepository implements IPartidaRepository {
     endereco?: string
   ): Promise<Partida[]> {
     try {
-      // 1. Consulta espacial PostGIS com GiST e ST_DWithin (< 800ms - RNF03)
       let query = `
         SELECT *,
           ST_Distance(
@@ -169,15 +171,11 @@ export class PgPartidaRepository implements IPartidaRepository {
       query += ` ORDER BY distancia_km ASC;`;
 
       const res = await db.query(query, params);
-      if (res.rows.length > 0) {
-        return res.rows.map(this.mapToEntity);
-      }
-      return [];
+      return this.mesclarComMemoria(res.rows.map(this.mapToEntity), lat, lng, raioMetros, esporte, endereco);
     } catch (err: any) {
       console.warn('Falha na consulta PostGIS ST_DWithin. Tentando consulta por fórmula esférica (Haversine):', err.message);
 
       try {
-        // 2. Redundância: Consulta SQL por fórmula esférica (Haversine)
         let haversineQuery = `
           SELECT *,
             (6371 * acos(
@@ -208,47 +206,18 @@ export class PgPartidaRepository implements IPartidaRepository {
         haversineQuery += ` ORDER BY distancia_km ASC;`;
 
         const res = await db.query(haversineQuery, params);
-        if (res.rows.length > 0) {
-          const raioKm = raioMetros / 1000;
-          return res.rows
-            .filter((r: any) => Number(r.distancia_km) <= raioKm)
-            .map(this.mapToEntity);
-        }
+        const raioKm = raioMetros / 1000;
+        const filtradas = res.rows
+          .filter((r: any) => Number(r.distancia_km) <= raioKm)
+          .map(this.mapToEntity);
+        return this.mesclarComMemoria(filtradas, lat, lng, raioMetros, esporte, endereco);
       } catch (sqlErr: any) {
         console.warn('Falha no fallback SQL Haversine. Buscando no fallback em memória:', sqlErr.message);
       }
     }
 
-    // 3. Fallback em memória (caso DB esteja totalmente indisponível)
-    const todas = Array.from(this.memoriaFallback.values());
-    const raioKm = raioMetros / 1000;
-    const limiteTolerancia = Date.now() - 15 * 60 * 1000;
-
-    return todas.filter((p) => {
-      if (p.statusPartida !== StatusPartidaEnum.PUBLICADA && p.statusPartida !== StatusPartidaEnum.LOTADA) {
-        return false;
-      }
-      if (p.dataHora.getTime() < limiteTolerancia) {
-        return false;
-      }
-      if (esporte && !p.esporte.toLowerCase().includes(esporte.toLowerCase())) {
-        return false;
-      }
-      if (endereco && !p.bairro.toLowerCase().includes(endereco.toLowerCase()) && !p.enderecoCompleto.toLowerCase().includes(endereco.toLowerCase())) {
-        return false;
-      }
-      const dLat = ((p.lat - lat) * Math.PI) / 180;
-      const dLng = ((p.lng - lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat * Math.PI) / 180) *
-          Math.cos((p.lat * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const dist = 6371 * c;
-      return dist <= raioKm;
-    });
+    // Fallback em memória (banco indisponível): somente partidas reais criadas pelos usuários
+    return this.filtrarMemoria(lat, lng, raioMetros, esporte, endereco);
   }
 
   public async buscarPartidasExpiradas(agora: Date = new Date()): Promise<Partida[]> {
@@ -324,7 +293,6 @@ export class PgPartidaRepository implements IPartidaRepository {
       return parseInt(res.rows[0].count, 10) > 0;
     } catch (err: any) {
       console.warn('Falha ao verificar conflito de agenda do organizador no PostgreSQL:', err.message);
-      // Fallback em memória
       const inicioNova = dataHora.getTime();
       const fimNova = inicioNova + duracaoMinutos * 60000;
 

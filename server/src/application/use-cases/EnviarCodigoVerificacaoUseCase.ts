@@ -59,4 +59,29 @@ export class EnviarCodigoVerificacaoUseCase {
       codigoDev: codigo,
     };
   }
+
+  public async enviarCodigoRecuperacao(email: string): Promise<EnviarCodigoVerificacaoOutput> {
+    if (!email || !email.includes('@')) {
+      throw new Error('Informe um e-mail válido.');
+    }
+
+    const emailSanitizado = email.trim().toLowerCase();
+    const usuario = await this.usuarioRepo.buscarPorEmail(emailSanitizado);
+    if (!usuario) {
+      throw new Error('Nenhuma conta encontrada com este e-mail. Use o botão "Continuar com o Google" para criar/acessar.');
+    }
+
+    const codigo = crypto.randomInt(100000, 999999).toString();
+    const expiraEm = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.codigoRepo.salvarCodigo(emailSanitizado, codigo, expiraEm);
+
+    console.log(`\n🔑 [Bora! App Recuperação] Código de recuperação para ${emailSanitizado}: >>> ${codigo} <<<\n`);
+
+    return {
+      success: true,
+      message: `Código de recuperação enviado para ${emailSanitizado}.`,
+      codigoDev: codigo,
+    };
+  }
 }

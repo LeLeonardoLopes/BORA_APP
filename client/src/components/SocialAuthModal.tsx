@@ -6,46 +6,87 @@ import {
   Typography,
   TextField,
   Button,
-  Avatar,
   IconButton,
-  Divider,
   CircularProgress,
-  Alert
+  Alert,
+  Chip,
+  MenuItem
 } from '@mui/material';
-import { X, ShieldCheck, ArrowRight } from 'lucide-react';
+import { X, ShieldCheck, ArrowRight, KeyRound, UserCheck } from 'lucide-react';
 import { api } from '../services/api';
 
 export interface SocialAuthModalProps {
   open: boolean;
   provider: 'google' | 'apple' | null;
+  modoRecuperacao?: boolean;
+  emailInicial?: string;
   onClose: () => void;
   onSuccess: (token: string, usuario: any) => void;
 }
 
+const CONTAS_RAPIDAS_GOOGLE = [
+  {
+    nome: 'Leonardo Lopes (Capitão Bora Franca)',
+    email: 'leonardo.lopes@boraapp.com.br',
+    genero: 'Masculino',
+    label: 'Conta Demo: Leonardo (Organizador)',
+  },
+  {
+    nome: 'Renata Saraiva (Sunset Beach Team)',
+    email: 'renata.saraiva@boraapp.com.br',
+    genero: 'Feminino',
+    label: 'Conta Demo: Renata (Atleta Feminina)',
+  },
+  {
+    nome: 'Prof. Carlos Eduardo (FATEC Franca)',
+    email: 'carlos.eduardo@fatecfranca.edu.br',
+    genero: 'Masculino',
+    label: 'Conta Demo: Prof. Carlos (FATEC)',
+  },
+];
+
 export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
   open,
   provider,
+  modoRecuperacao = false,
+  emailInicial = '',
   onClose,
   onSuccess,
 }) => {
   const isGoogle = provider === 'google';
-  
+
   const [nome, setNome] = useState(isGoogle ? 'Leonardo Lopes' : 'Atleta Apple');
-  const [email, setEmail] = useState(isGoogle ? 'leleonardolopes@gmail.com' : 'usuario.apple@icloud.com');
+  const [email, setEmail] = useState(isGoogle ? 'leonardo.lopes@boraapp.com.br' : 'usuario.apple@icloud.com');
+  const [genero, setGenero] = useState<'Feminino' | 'Masculino'>('Masculino');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Sincroniza dados ao abrir
   React.useEffect(() => {
     if (provider === 'google') {
-      setNome('Leonardo Lopes');
-      setEmail('leleonardolopes@gmail.com');
+      if (emailInicial && emailInicial.includes('@')) {
+        setEmail(emailInicial);
+        const contaConhecida = CONTAS_RAPIDAS_GOOGLE.find(
+          (c) => c.email.toLowerCase() === emailInicial.toLowerCase()
+        );
+        if (contaConhecida) {
+          setNome(contaConhecida.nome);
+          setGenero(contaConhecida.genero as 'Feminino' | 'Masculino');
+        } else {
+          const prefixo = emailInicial.split('@')[0].replace(/[._-]/g, ' ');
+          setNome(prefixo.charAt(0).toUpperCase() + prefixo.slice(1));
+        }
+      } else {
+        setNome('Leonardo Lopes');
+        setEmail('leonardo.lopes@boraapp.com.br');
+        setGenero('Masculino');
+      }
     } else if (provider === 'apple') {
       setNome('Atleta Apple');
       setEmail('usuario.apple@icloud.com');
     }
     setError(null);
-  }, [provider]);
+  }, [provider, emailInicial, open]);
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +107,8 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
         provider,
         email: email.trim().toLowerCase(),
         nome: nome.trim(),
+        genero,
+        recuperarAcesso: modoRecuperacao,
       });
 
       localStorage.setItem('@bora:token', res.data.token);
@@ -73,6 +116,29 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
       onSuccess(res.data.token, res.data.usuario);
       onClose();
     } catch (err: any) {
+      // Fallback caso o servidor backend esteja offline durante a demonstração
+      if (!err.response) {
+        const usuarioDemo = {
+          id:
+            email.toLowerCase().includes('renata')
+              ? '11111111-1111-1111-1111-111111111102'
+              : email.toLowerCase().includes('carlos')
+              ? '11111111-1111-1111-1111-111111111103'
+              : '11111111-1111-1111-1111-111111111101',
+          nome: nome.trim(),
+          email: email.trim().toLowerCase(),
+          genero,
+          raioBuscaKm: 5,
+          notaMedia: 4.95,
+        };
+        const tokenDemo = 'demo-google-oauth-token';
+        localStorage.setItem('@bora:token', tokenDemo);
+        localStorage.setItem('@bora:user', JSON.stringify(usuarioDemo));
+        onSuccess(tokenDemo, usuarioDemo);
+        onClose();
+        return;
+      }
+
       const msg = err.response?.data?.error || `Erro ao autenticar com ${isGoogle ? 'Google' : 'Apple'}.`;
       setError(msg);
     } finally {
@@ -83,10 +149,10 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
   if (!provider) return null;
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={loading ? undefined : onClose}
-      maxWidth="xs" 
+      maxWidth="xs"
       fullWidth
       PaperProps={{
         sx: {
@@ -94,13 +160,13 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
           p: 1,
           boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
           bgcolor: isGoogle ? '#FFFFFF' : '#0F172A',
-          color: isGoogle ? '#1F2937' : '#FFFFFF'
-        }
+          color: isGoogle ? '#1F2937' : '#FFFFFF',
+        },
       }}
     >
       <DialogContent sx={{ p: 2.5 }}>
         {/* Cabeçalho Oficial do Provedor */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Box display="flex" alignItems="center" gap={1.5}>
             {isGoogle ? (
               <svg width="24" height="24" viewBox="0 0 24 24">
@@ -114,8 +180,12 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
                 <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.08-7.71-7.92-12.04-14.51-6.19-9.42-11-20.08-14.43-32-3.43-11.91-5.15-23.01-5.15-33.31 0-14.78 3.73-26.69 11.2-35.74 7.47-9.05 16.73-13.67 27.78-13.88 4.67 0 9.77 1.25 15.31 3.76 5.54 2.5 9.4 3.82 11.59 3.94 1.74 0 5.86-1.44 12.36-4.32 6.5-2.88 12.05-4.14 16.65-3.76 17.51 1.05 30.65 8.16 39.42 21.34-15.65 9.45-23.27 22.37-22.86 38.74.41 12.87 5.17 23.49 14.28 31.85 4.12 3.79 8.87 6.64 14.25 8.55-2.92 8.78-6.73 17.29-11.44 25.53zM119.22 33.64c0-7.39 2.66-14.42 7.97-21.08 5.31-6.66 12.06-11.13 20.25-13.41.98 7.39-1.28 14.51-6.79 21.36-5.51 6.84-12.44 11.42-20.79 13.73-.24-.2-.43-.4-.64-.6z"/>
               </svg>
             )}
-            <Typography variant="h6" fontWeight={800} fontSize="1.05rem">
-              {isGoogle ? 'Fazer login com o Google' : 'Iniciar sessão com a Apple'}
+            <Typography variant="h6" fontWeight={800} fontSize="1.02rem">
+              {modoRecuperacao
+                ? 'Recuperar Acesso pelo Google'
+                : isGoogle
+                ? 'Fazer login com o Google'
+                : 'Iniciar sessão com a Apple'}
             </Typography>
           </Box>
           <IconButton size="small" onClick={onClose} disabled={loading} sx={{ color: isGoogle ? '#6B7280' : '#94A3B8' }}>
@@ -124,12 +194,55 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
         </Box>
 
         <Typography variant="body2" sx={{ color: isGoogle ? '#4B5563' : '#94A3B8', mb: 2 }}>
-          Para continuar no <strong>Bora! App</strong>, confirme ou edite os dados da sua conta oficial {isGoogle ? 'Google' : 'Apple'}:
+          {modoRecuperacao ? (
+            <>
+              Selecione ou informe o e-mail Google da sua conta <strong>Bora! App</strong> para restaurar seu acesso imediatamente sem precisar de senha:
+            </>
+          ) : (
+            <>
+              Escolha uma conta rápida de demonstração ou informe seu e-mail <strong>{isGoogle ? 'Google' : 'Apple'}</strong> para entrar:
+            </>
+          )}
         </Typography>
+
+        {isGoogle && (
+          <Box mb={2}>
+            <Typography variant="caption" fontWeight={800} sx={{ color: '#374151', display: 'block', mb: 0.8 }}>
+              ⚡ CONTAS RÁPIDAS PARA TESTE / DEMONSTRAÇÃO TCC:
+            </Typography>
+            <Box display="flex" flexDirection="column" gap={0.8}>
+              {CONTAS_RAPIDAS_GOOGLE.map((conta) => {
+                const selecionada = email.toLowerCase() === conta.email.toLowerCase();
+                return (
+                  <Chip
+                    key={conta.email}
+                    icon={<UserCheck size={14} />}
+                    label={`${conta.label} (${conta.email})`}
+                    onClick={() => {
+                      setNome(conta.nome);
+                      setEmail(conta.email);
+                      setGenero(conta.genero as 'Feminino' | 'Masculino');
+                    }}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      fontWeight: 700,
+                      fontSize: '0.72rem',
+                      py: 1.8,
+                      bgcolor: selecionada ? '#EFF6FF' : '#F3F4F6',
+                      color: selecionada ? '#1D4ED8' : '#374151',
+                      border: selecionada ? '1.5px solid #3B82F6' : '1px solid #E5E7EB',
+                      cursor: 'pointer',
+                    }}
+                  />
+                );
+              })}
+            </Box>
+          </Box>
+        )}
 
         {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
-        <Box component="form" onSubmit={handleConfirm} display="flex" flexDirection="column" gap={2}>
+        <Box component="form" onSubmit={handleConfirm} display="flex" flexDirection="column" gap={1.8}>
           <TextField
             label="Nome da Conta"
             size="small"
@@ -143,7 +256,7 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
                 bgcolor: isGoogle ? '#F9FAFB' : '#1E293B',
                 color: isGoogle ? '#111827' : '#F8FAFC',
                 borderRadius: 2,
-              }
+              },
             }}
           />
 
@@ -161,14 +274,37 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
                 bgcolor: isGoogle ? '#F9FAFB' : '#1E293B',
                 color: isGoogle ? '#111827' : '#F8FAFC',
                 borderRadius: 2,
-              }
+              },
             }}
           />
 
+          {isGoogle && (
+            <TextField
+              select
+              label="Gênero do Perfil (Validação RN06)"
+              size="small"
+              fullWidth
+              value={genero}
+              onChange={(e) => setGenero(e.target.value as 'Feminino' | 'Masculino')}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#F9FAFB',
+                  color: '#111827',
+                  borderRadius: 2,
+                },
+              }}
+            >
+              <MenuItem value="Masculino">Masculino</MenuItem>
+              <MenuItem value="Feminino">Feminino (Habilita Espaço Seguro RN06)</MenuItem>
+            </TextField>
+          )}
+
           <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-            <ShieldCheck size={16} color="#16A34A" />
+            {modoRecuperacao ? <KeyRound size={16} color="#2563EB" /> : <ShieldCheck size={16} color="#16A34A" />}
             <Typography variant="caption" sx={{ color: isGoogle ? '#6B7280' : '#94A3B8', fontWeight: 600 }}>
-              Autenticação segura via protocolo OAuth 2.0
+              {modoRecuperacao
+                ? 'Recuperação instantânea de sessão verificada pelo Google (Sem custo de tokens)'
+                : 'Autenticação OAuth 2.0 • 100% Gratuito para Demonstração e Testes'}
             </Typography>
           </Box>
 
@@ -177,7 +313,7 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
             disabled={loading}
             endIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ArrowRight size={18} />}
             sx={{
-              mt: 1,
+              mt: 0.5,
               py: 1.4,
               fontWeight: 800,
               borderRadius: 2.5,
@@ -188,10 +324,14 @@ export const SocialAuthModal: React.FC<SocialAuthModalProps> = ({
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               '&:hover': {
                 bgcolor: isGoogle ? '#1557B0 !important' : '#E2E8F0 !important',
-              }
+              },
             }}
           >
-            {loading ? 'Autenticando...' : `Continuar como ${nome.split(' ')[0] || 'Atleta'}`}
+            {loading
+              ? 'Autenticando...'
+              : modoRecuperacao
+              ? `Recuperar Acesso de ${nome.split(' ')[0] || 'Atleta'}`
+              : `Continuar como ${nome.split(' ')[0] || 'Atleta'}`}
           </Button>
         </Box>
       </DialogContent>

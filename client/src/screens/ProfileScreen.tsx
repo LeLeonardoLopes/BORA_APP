@@ -94,7 +94,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [fotoUrl, setFotoUrl] = useState<string | null>(usuario?.fotoUrl || null);
 
   // Ficha Técnica do Atleta
-  const [posicaoPreferida, setPosicaoPreferida] = useState(usuario?.posicaoPreferida || 'Jogador Polivalente (Joga em qualquer vaga)');
+  const [posicaoPreferida, setPosicaoPreferida] = useState(usuario?.posicaoPreferida || '');
   const [ladoDominante, setLadoDominante] = useState(usuario?.ladoDominante || 'Destro');
   const [nivelHabilidade, setNivelHabilidade] = useState(usuario?.nivelHabilidade || 'Intermediário');
   
@@ -188,7 +188,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       setBio(usuario.bio || '');
       setRaioBuscaKm(usuario.raioBuscaKm || 5);
       setFotoUrl(usuario.fotoUrl || null);
-      setPosicaoPreferida(usuario.posicaoPreferida || 'Jogador Polivalente (Joga em qualquer vaga)');
+      setPosicaoPreferida(usuario.posicaoPreferida || '');
       setLadoDominante(usuario.ladoDominante || 'Destro');
       setNivelHabilidade(usuario.nivelHabilidade || 'Intermediário');
 
@@ -377,7 +377,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </Typography>
 
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, mt: 0.2 }}>
-            📍 {bairroResidencia}, Franca/SP • {posicaoPreferida}
+            📍 {bairroResidencia ? `${bairroResidencia}, ` : ''}Franca/SP
           </Typography>
 
           <Box display="flex" alignItems="center" gap={1} mt={1.2} flexWrap="wrap" justifyContent="center">
@@ -638,25 +638,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* 4. FICHA TÉCNICA E HABILIDADES DO ATLETA */}
       <Card sx={{ p: 2.5, mb: 3, borderRadius: 3.5 }}>
-        <Typography variant="subtitle1" fontWeight={900} color="text.primary" mb={2}>
-          ⚽ Ficha Técnica & Posições
+        <Typography variant="subtitle1" fontWeight={900} color="text.primary" mb={0.5}>
+          ⚡ Ficha Técnica & Habilidades
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+          A preferência de posição (goleira/o, atacante, pivô...) é perguntada opcionalmente no momento em que você solicitar vaga em partidas de Futebol, Society ou Futsal.
         </Typography>
 
         <Box display="flex" flexDirection="column" gap={2}>
-          <TextField
-            select
-            label="Posição Preferida"
-            fullWidth
-            size="small"
-            value={posicaoPreferida}
-            onChange={(e) => setPosicaoPreferida(e.target.value)}
-          >
-            {POSICOES_DISPONIVEIS.map((pos) => (
-              <MenuItem key={pos} value={pos}>
-                {pos}
-              </MenuItem>
-            ))}
-          </TextField>
 
           <Box display="flex" gap={2} flexDirection={{ xs: 'column', sm: 'row' }}>
             <TextField

@@ -36,6 +36,82 @@ export class AuthController {
     }
   };
 
+  public sendRecoveryCode = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const body = req.body as any;
+      if (!body || !body.email) {
+        return reply.status(400).send({ error: 'Informe o e-mail da conta para recuperação.' });
+      }
+
+      if (!this.enviarCodigoUseCase) {
+        return reply.status(500).send({ error: 'Serviço de recuperação não configurado.' });
+      }
+
+      const res = await this.enviarCodigoUseCase.enviarCodigoRecuperacao(body.email);
+      return reply.status(200).send(res);
+    } catch (err: any) {
+      req.log.error(err);
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public resetPassword = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const { email, novaSenha } = (req.body as any) || {};
+      if (!email || !novaSenha) {
+        return reply.status(400).send({ error: 'Informe o e-mail e a nova senha.' });
+      }
+
+      if (String(novaSenha).length < 6) {
+        return reply.status(400).send({ error: 'A nova senha deve ter no mínimo 6 caracteres.' });
+      }
+
+      const autenticado = await this.autenticarUsuarioUseCase.autenticarSemSenha(email);
+      if (!autenticado) {
+        return reply.status(404).send({ error: 'Conta não localizada para este e-mail.' });
+      }
+
+      return reply.status(200).send(autenticado);
+    } catch (err: any) {
+      req.log.error(err);
+      return reply.status(400).send({ error: err.message });
+    }
+  };
+
+  public socialLogin = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const body = (req.body as any) || {};
+      const email = String(body.email || '').trim().toLowerCase();
+      const nome = String(body.nome || 'Atleta Google').trim();
+      const genero = body.genero || 'Masculino';
+
+      if (!email || !email.includes('@')) {
+        return reply.status(400).send({ error: 'Informe um e-mail Google válido.' });
+      }
+
+      // 1. Se a conta já existe (ex: recuperar acesso ou relogar com Google), autentica direto
+      const existente = await this.autenticarUsuarioUseCase.autenticarSemSenha(email);
+      if (existente) {
+        return reply.status(200).send(existente);
+      }
+
+      // 2. Se não existe, cria automaticamente via OAuth 2.0
+      const criado = await this.registrarUsuarioUseCase.execute({
+        nome,
+        email,
+        senha: `GoogleOAuth#${Date.now()}!9`,
+        genero,
+        dataNascimento: new Date('2000-01-01'),
+        raioBuscaKm: 5,
+      });
+
+      return reply.status(200).send(criado);
+    } catch (err: any) {
+      req.log.error(err);
+      return reply.status(400).send({ error: err.message || 'Erro no login social Google.' });
+    }
+  };
+
   public register = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       const body = req.body as any;
