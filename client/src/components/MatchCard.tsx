@@ -121,7 +121,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isLotado = isAmistoso ? Boolean(timeVisitante) : vagasRestantes <= 0;
   const isFinalizada = statusPartida === 'Finalizada';
 
-  const souOrganizador = isOrganizador || organizadorId === usuarioLogado.id || organizadorId === '11111111-1111-1111-1111-111111111101';
+  const souOrganizador = Boolean(isOrganizador || (usuarioLogado?.id && organizadorId === usuarioLogado.id));
   const statusMinhaSolicitacao = minhaSolicitacao?.status;
   const solicitacaoPendente = !souOrganizador && statusMinhaSolicitacao === 'Pendente';
   const solicitacaoAprovada = isConfirmado || statusMinhaSolicitacao === 'Aprovada';

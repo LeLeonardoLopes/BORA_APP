@@ -237,9 +237,11 @@ export const App: React.FC = () => {
     isLoading: carregandoPartidas,
     refetch: carregarPartidasDoBanco,
   } = useQuery<any[]>({
-    queryKey: ['matches', raioKm, coordBusca.lat, coordBusca.lng],
+    queryKey: ['matches', usuarioLogado?.id, usuarioLogado?.genero, raioKm, coordBusca.lat, coordBusca.lng],
     queryFn: async () => {
       const mapearPartida = (p: any) => {
+        const orgId = p.organizadorId || p.organizador_id;
+        const souOrg = Boolean(usuarioLogado?.id && orgId === usuarioLogado.id);
         const isAmistoso = p.formatoJogo === 'Amistoso_Times' || p.esporte?.includes('Amistoso') || p.maxVagas <= 2 || p.descricao?.toLowerCase().includes('amistoso');
         const isPrivada = p.tipoLocal === 'Privada' || p.descricao?.toLowerCase().includes('arena') || p.descricao?.toLowerCase().includes('privada') || p.descricao?.toLowerCase().includes('sintética') || p.descricao?.toLowerCase().includes('sunset');
         return {
@@ -249,8 +251,8 @@ export const App: React.FC = () => {
           dataHora: p.dataHora,
           duracaoMinutos: p.duracaoMinutos || 90,
           statusPartida: p.statusPartida || 'Publicada',
-          organizadorId: p.organizadorId || p.organizador_id,
-          isOrganizador: Boolean(p.isOrganizador || (usuarioLogado?.id && (p.organizadorId || p.organizador_id) === usuarioLogado.id)),
+          organizadorId: orgId,
+          isOrganizador: souOrg,
           bairro: p.bairro,
           enderecoCompleto: p.enderecoCompleto || `${p.bairro}, Franca/SP`,
           lat: Number(p.lat),
@@ -267,7 +269,7 @@ export const App: React.FC = () => {
           taxaCampo: p.taxaCampo || 0,
           taxaJuiz: p.taxaJuiz || 0,
           valorPorEquipe: (p.taxaCampo || 0) / 2,
-          isConfirmado: Boolean(p.isOrganizador || p.isConfirmado || (usuarioLogado?.id && (p.organizadorId || p.organizador_id) === usuarioLogado.id)),
+          isConfirmado: souOrg,
         };
       };
       const lerLocais = (): any[] => lerPartidasLocais();
@@ -288,9 +290,11 @@ export const App: React.FC = () => {
         .map(mapearPartida);
       return [...locais, ...doBanco].filter(naoExcluida);
     },
-    initialData: () => [],
     enabled: Boolean(usuarioLogado),
-    staleTime: 1000 * 20,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 6000,
   });
 
   // Query para sincronizar solicitações pendentes reais do organizador e solicitações enviadas pelo atleta
@@ -313,7 +317,10 @@ export const App: React.FC = () => {
       return [...doServidor, ...locais];
     },
     enabled: Boolean(usuarioLogado?.id),
-    staleTime: 1000 * 10,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 6000,
   });
 
   useEffect(() => {
